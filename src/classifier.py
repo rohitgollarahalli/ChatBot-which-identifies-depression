@@ -39,7 +39,10 @@ from sklearn.naive_bayes import GaussianNB, MultinomialNB
 from sklearn.neural_network import MLPClassifier
 from sklearn.svm import SVC
 
-from src.safety import DISCLAIMER
+try:
+    from src.safety import CRISIS_MESSAGE, DISCLAIMER, is_crisis
+except ImportError:  # run as a script: python src/classifier.py
+    from safety import CRISIS_MESSAGE, DISCLAIMER, is_crisis  # type: ignore[no-redef]
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 DEPRESSED_LABEL = "depressed"
@@ -258,20 +261,29 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def verdict_message(label: str, transcript: str) -> str:
+    """What to show for a classified transcript.
+
+    Crisis language always overrides the model: a wrong "does not show signs"
+    guess right after someone wrote about suicide would be harmful.
+    """
+    if is_crisis(transcript):
+        return CRISIS_MESSAGE
+    verdict = (
+        "shows signs of depression"
+        if label == DEPRESSED_LABEL
+        else "does not show signs of depression"
+    )
+    return f"The model's guess: the transcript {verdict}.\n{DISCLAIMER}"
+
+
 def main() -> None:
     args = parse_args()
     model, vectorizer, preprocess = train(args.model, args.vectorizer, args.ngram)
 
     if args.predict:
         label = predict_transcript(args.predict, model, vectorizer, preprocess)
-        verdict = (
-            "shows signs of depression"
-            if label == DEPRESSED_LABEL
-            else "does not show signs of depression"
-        )
-        print(f"\nThe model's guess: the transcript {verdict}.")
-        print(DISCLAIMER)
-
+        print("\n" + verdict_message(label, read_text(args.predict)))
 
 if __name__ == "__main__":
     main()

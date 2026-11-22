@@ -16,11 +16,14 @@ import argparse
 import random
 import re
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Callable, List, Optional, Tuple
 
 from nltk.chat.util import reflections
 
-from src.safety import CRISIS_MESSAGE, DISCLAIMER, is_crisis
+try:
+    from src.safety import CRISIS_MESSAGE, CRISIS_REMINDER, DISCLAIMER, is_crisis
+except ImportError:  # run as a script: python src/chatbot.py
+    from safety import CRISIS_MESSAGE, CRISIS_REMINDER, DISCLAIMER, is_crisis  # type: ignore[no-redef]
 
 MIN_WORDS = 31
 EXIT_COMMAND = "good-bye"
@@ -142,31 +145,48 @@ def respond(message: str) -> str:
     return "Please tell me more."
 
 
-def run(output_path: Path) -> None:
+def run(
+    output_path: Path,
+    read: Callable[[str], str] = input,
+    write: Callable[[str], None] = print,
+) -> None:
     transcript: List[str] = []
-    print(DISCLAIMER + "\n")
-    print("Hi! Please answer in full sentences rather than one or two words.")
-    print("We're happy to help. :)")
-    print(f"When you'd like to finish, just type '{EXIT_COMMAND}'.")
-    print("\nHello. How are you feeling today?")
+    crisis_seen = False
+    write(DISCLAIMER + "\n")
+    write("Hi! Please answer in full sentences rather than one or two words.")
+    write("We're happy to help. :)")
+    write(f"When you'd like to finish, just type '{EXIT_COMMAND}'.")
+    write("\nHello. How are you feeling today?")
 
     while True:
         try:
-            message = input("> ").strip()
+            message = read("> ").strip()
         except (EOFError, KeyboardInterrupt):
-            print()
+            write("")
             break
 
-        if message == EXIT_COMMAND:
+        if message.lower() == EXIT_COMMAND:
             if len(" ".join(transcript).split()) >= MIN_WORDS:
                 Path(output_path).write_text(" ".join(transcript), encoding="utf-8")
-                print(f"\nThank you. Your responses were saved to {output_path}.")
+                write(f"\nThank you. Your responses were saved to {output_path}.")
                 break
-            print("Let's chat a little more so we can help. Tell me more about your problem.")
+            if crisis_seen:
+                # Never hold someone in the conversation after a crisis message.
+                break
+            write("Let's chat a little more so we can help. Tell me more about your problem.")
             continue
 
         transcript.append(message)
-        print(respond(message))
+        reply = respond(message)
+        if reply == CRISIS_MESSAGE:
+            # Full message once; a short reminder after, so reassurances
+            # ("I'm not suicidal") don't get the same wall of text.
+            reply = CRISIS_REMINDER if crisis_seen else CRISIS_MESSAGE
+            crisis_seen = True
+        write(reply)
+
+    if crisis_seen:
+        write(CRISIS_REMINDER)
 
 
 def parse_args() -> argparse.Namespace:
