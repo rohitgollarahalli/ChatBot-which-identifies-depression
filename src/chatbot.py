@@ -20,6 +20,8 @@ from typing import List, Optional, Tuple
 
 from nltk.chat.util import reflections
 
+from src.safety import CRISIS_MESSAGE, DISCLAIMER, is_crisis
+
 MIN_WORDS = 31
 EXIT_COMMAND = "good-bye"
 
@@ -129,6 +131,9 @@ def _reflect(fragment: str) -> str:
 
 def respond(message: str) -> str:
     """Return the bot's reply to a single user message."""
+    # Never reflect suicide or self-harm language back as a question.
+    if is_crisis(message):
+        return CRISIS_MESSAGE
     for pattern, responses in _COMPILED:
         match = pattern.match(message.rstrip(".!"))
         if match:
@@ -139,6 +144,7 @@ def respond(message: str) -> str:
 
 def run(output_path: Path) -> None:
     transcript: List[str] = []
+    print(DISCLAIMER + "\n")
     print("Hi! Please answer in full sentences rather than one or two words.")
     print("We're happy to help. :)")
     print(f"When you'd like to finish, just type '{EXIT_COMMAND}'.")

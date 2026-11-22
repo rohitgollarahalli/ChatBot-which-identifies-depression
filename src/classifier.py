@@ -39,6 +39,8 @@ from sklearn.naive_bayes import GaussianNB, MultinomialNB
 from sklearn.neural_network import MLPClassifier
 from sklearn.svm import SVC
 
+from src.safety import DISCLAIMER
+
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 DEPRESSED_LABEL = "depressed"
 NOT_DEPRESSED_LABEL = "not_depressed"
@@ -267,7 +269,8 @@ def main() -> None:
             if label == DEPRESSED_LABEL
             else "does not show signs of depression"
         )
-        print(f"\nThe transcript {verdict}.")
+        print(f"\nThe model's guess: the transcript {verdict}.")
+        print(DISCLAIMER)
 
 
 if __name__ == "__main__":
