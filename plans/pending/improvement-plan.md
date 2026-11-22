@@ -1,6 +1,6 @@
 # Improvement plan: from "depression detector" to a safe, well-built check-in tool
 
-Status: **approved** (2026-11-22). Gate answers: check-in companion; ELIZA + optional Claude with consent; Streamlit local web app; safety fix merged first.
+Status: **approved** (2026-11-22). Gate answers: check-in companion; ELIZA + optional self-hosted LLM (no cloud APIs); Streamlit local web app; safety fix merged first.
 
 ## Where the project is today
 
@@ -97,20 +97,40 @@ Verified when: an evaluation report shows the confound and a fixed baseline.
   limits rather than chase accuracy.
 - Blocked by: 1.3
 
-### Phase 4: Better conversation (M)
+### Phase 4: Better conversation, fully local (M)
 Verified when: the engine interface has two implementations, both pass the shared
-safety tests; the bot no longer parrots.
+safety tests; the bot no longer parrots; no network traffic leaves the host during a session.
 - Engine interface; improved ELIZA (more patterns, short memory, no reflection of harmful text).
-- Optional LLM engine (Claude API) with a supportive-listener system prompt, the safety screen
-  run on input **and** output, explicit consent before any text leaves the machine, offline
-  ELIZA fallback when no API key. (Chosen in gate.)
+- Optional **self-hosted LLM engine** through a local Ollama server (`/api/chat` on
+  `localhost:11434`, [docs](https://docs.ollama.com/api/chat.md)), with a supportive-listener
+  system prompt. The safety screen runs on input **and** model output. ELIZA is the fallback when
+  no local model is running. Endpoint configurable but defaults to localhost; refuse non-local
+  endpoints unless explicitly allowed.
+- No third-party/cloud LLM APIs in this project.
 - Blocked by: 1.3
 
 ### Phase 5: Friendly interface (M)
 Verified when: a first-time user can complete chat → check-in → results without reading docs.
 - Local Streamlit web app: chat pane, check-in form, results page with guidance and
   helplines always visible, "your data stays on this device" notice. Accessible (WCAG AA).
-- Blocked by: 2.3 (and 4 if the LLM engine is chosen)
+- Blocked by: 2.3, 4
+
+## Privacy and HIPAA
+
+Self-hosting keeps every conversation on the machine running the tool. That is a strong privacy
+safeguard, but it does **not** by itself make anything "HIPAA compliant":
+
+- HIPAA applies to covered entities (providers, health plans, clearinghouses) and their business
+  associates. A consumer using a tool on their own is generally outside HIPAA
+  ([HHS](https://www.hhs.gov/hipaa/for-professionals/privacy/guidance/access-right-health-apps-apis/index.html),
+  [FTC](https://www.ftc.gov/business-guidance/resources/mobile-health-apps-interactive-tool)).
+- If a covered entity deploys it, compliance comes from that organisation's safeguards (access
+  control, audit logs, encryption at rest, risk analysis, BAAs with vendors), not from the code.
+
+What the project will do: local-only processing by default, no telemetry, opt-in and
+encrypted-at-rest session storage, a `docs/privacy.md` that states exactly what is stored and
+where, and a "deploying in a clinical setting" section listing the safeguards an operator must add.
+What it will never do: claim to be HIPAA compliant or certified.
 
 ## Decision log
 | Decision | Chosen option | Why |
@@ -119,7 +139,7 @@ Verified when: a first-time user can complete chat → check-in → results with
 | Safety screen placement | Before every reply, every engine | One shared guarantee, testable once. |
 | Transcript storage | Opt-in, local only | Mental-health text is sensitive. |
 | Product framing | Check-in companion; ML = research mode | Gate answer 2026-11-22. |
-| Conversation engine | Improved ELIZA default; Claude API opt-in with consent | Gate answer; offline by default, nothing leaves the device unasked. |
+| Conversation engine | Improved ELIZA default; optional self-hosted LLM via Ollama; no cloud APIs | User decision 2026-11-22 (replaces the earlier Claude-API answer): conversations must stay on infrastructure we control. |
 | Interface | Streamlit local web app (CLI kept) | Gate answer; fastest path to a friendly UI. |
 | Package name | `moodcheck` (GitHub repo name unchanged for now) | Renaming the repo changes public URLs; can be done later. |
 | Large binaries | Removed from the tree, not from git history | A history rewrite would break existing clones; the size is a one-time clone cost. |
@@ -127,14 +147,15 @@ Verified when: a first-time user can complete chat → check-in → results with
 ## Not yet specified
 - Phase 3: is there a properly licensed labelled dataset we may use (e.g. research datasets that
   need a data-use agreement)? Fog — researched at Phase 3 pickup.
-- Phase 4: exact model and cost ceiling for the LLM engine, if chosen.
+- Phase 4: which local model (size vs. quality on a laptop CPU/GPU) — benchmark candidates at pickup.
 - Phase 2: which countries' helplines to list beyond the US + findahelpline.com.
 
 ## Always / Never
 - Always: crisis resources reachable from every screen; disclaimer that this is not a diagnosis;
   tests for every safety path; cite sources for any health claim.
 - Never: diagnose, give medication advice, store or send conversations without explicit consent,
-  claim clinical accuracy, ship the ML label as a verdict.
+  claim clinical accuracy, claim HIPAA compliance, send conversation text to third-party APIs,
+  ship the ML label as a verdict.
 
 ## Progress
 | Phase | Status |
