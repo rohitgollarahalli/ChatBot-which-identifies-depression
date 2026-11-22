@@ -16,6 +16,7 @@ Please do not use GitHub issues or security reports to seek help.
 Please report security issues privately through GitHub private vulnerability
 reporting: open the repository's **Security** tab and choose
 **Report a vulnerability**. Do not open a public issue for security problems.
+The same private channel is used for Code of Conduct reports.
 
 Include what you found, how to reproduce it, and the version or commit. This is a
 volunteer-maintained project, so responses are best effort.

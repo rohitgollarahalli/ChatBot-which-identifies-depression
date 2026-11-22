@@ -44,17 +44,22 @@ The system runs in two stages:
 ## Project structure
 
 ```
-depression-detector/
+.
 ├── src/
 │   ├── chatbot.py       # ELIZA-style reflective conversation agent
 │   ├── classifier.py    # preprocessing + ML classification pipeline
+│   ├── safety.py        # crisis-language screen and help resources
 │   └── __init__.py
+├── tests/               # pytest suite (safety screen, conversation flow)
 ├── data/
 │   ├── depressed.txt        # labelled corpus (depressed)
 │   └── not_depressed.txt    # labelled corpus (not depressed)
-├── requirements.txt
-├── LICENSE
-└── README.md
+├── plans/               # improvement plan
+├── pyproject.toml       # metadata + ruff/mypy/pytest config
+├── requirements.txt     # runtime dependencies
+├── requirements-dev.txt # dev tools (pinned)
+├── CONTRIBUTING.md · SECURITY.md · CODE_OF_CONDUCT.md · CHANGELOG.md
+└── LICENSE
 ```
 
 ## Getting started

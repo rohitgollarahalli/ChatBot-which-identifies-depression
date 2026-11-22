@@ -1,13 +1,15 @@
-[build-system]
-requires = ["setuptools>=68"]
-build-backend = "setuptools.build_meta"
+# Metadata and tool configuration only. The project is not installable with
+# `pip install .` yet: it runs from a checkout (see CONTRIBUTING.md). Proper
+# packaging, with the data shipped inside the package, arrives with the
+# src/moodcheck/ refactor.
 
 [project]
 name = "moodcheck"
 version = "0.2.0.dev0"
 description = "ELIZA-style reflective chatbot with a classical-ML mood classifier and a crisis-language safety screen (academic project, not a medical device)."
 readme = "README.md"
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.10"
 dependencies = [
   "nltk>=3.8",
@@ -15,20 +17,10 @@ dependencies = [
   "numpy>=1.24",
 ]
 
-[project.optional-dependencies]
-dev = [
-  "pytest>=8",
-  "pytest-cov",
-  "ruff",
-  "mypy",
-  "pre-commit",
-]
+# Dev dependencies live in requirements-dev.txt (single source of truth).
 
 [project.urls]
 Repository = "https://github.com/rohitgollarahalli/ChatBot-which-identifies-depression"
-
-[tool.setuptools]
-packages = ["src"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

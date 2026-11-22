@@ -11,6 +11,12 @@ cd ChatBot-which-identifies-depression
 python -m venv .venv
 . .venv/bin/activate
 pip install -r requirements-dev.txt
+```
+
+The project runs from a checkout for now; `pip install .` is not supported until
+the package refactor lands.
+
+```bash
 pre-commit install   # optional: run ruff on every commit
 ```
 

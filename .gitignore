@@ -13,3 +13,10 @@ output.txt
 .DS_Store
 .idea/
 .vscode/
+
+# Tool caches
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
