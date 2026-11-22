@@ -11,7 +11,7 @@ def _session(lines, tmp_path):
         try:
             return next(feed)
         except StopIteration:
-            raise EOFError
+            raise EOFError from None
 
     run(tmp_path / "out.txt", read=read, write=out.append)
     return out

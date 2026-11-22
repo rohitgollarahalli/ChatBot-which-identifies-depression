@@ -1,2 +1,6 @@
 -r requirements.txt
 pytest>=8
+pytest-cov
+ruff==0.17.6  # keep in sync with .pre-commit-config.yaml
+mypy==2.4.1
+pre-commit

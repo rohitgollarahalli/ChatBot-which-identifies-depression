@@ -4,7 +4,8 @@ A two-part natural language processing project that holds a short, empathetic
 conversation with a user and then classifies the resulting transcript as
 **depressed** or **not depressed** using classical machine-learning models.
 
-[![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/)
+[![CI](https://github.com/rohitgollarahalli/ChatBot-which-identifies-depression/actions/workflows/ci.yml/badge.svg)](https://github.com/rohitgollarahalli/ChatBot-which-identifies-depression/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Built with scikit-learn](https://img.shields.io/badge/built%20with-scikit--learn-orange.svg)](https://scikit-learn.org/)
 
@@ -43,17 +44,22 @@ The system runs in two stages:
 ## Project structure
 
 ```
-depression-detector/
+.
 ├── src/
 │   ├── chatbot.py       # ELIZA-style reflective conversation agent
 │   ├── classifier.py    # preprocessing + ML classification pipeline
+│   ├── safety.py        # crisis-language screen and help resources
 │   └── __init__.py
+├── tests/               # pytest suite (safety screen, conversation flow)
 ├── data/
 │   ├── depressed.txt        # labelled corpus (depressed)
 │   └── not_depressed.txt    # labelled corpus (not depressed)
-├── requirements.txt
-├── LICENSE
-└── README.md
+├── plans/               # improvement plan
+├── pyproject.toml       # metadata + ruff/mypy/pytest config
+├── requirements.txt     # runtime dependencies
+├── requirements-dev.txt # dev tools (pinned)
+├── CONTRIBUTING.md · SECURITY.md · CODE_OF_CONDUCT.md · CHANGELOG.md
+└── LICENSE
 ```
 
 ## Getting started
@@ -118,6 +124,15 @@ Exact numbers vary with the random split and on whether the full NLTK
 tokenizer or the lightweight offline fallback is used. The dataset is small, so
 these figures should be read as a comparison of approaches rather than a
 benchmark.
+
+## Project report
+
+The original project report is available as a [PDF](https://github.com/rohitgollarahalli/ChatBot-which-identifies-depression/blob/f00e128b2bf75694236be5dc146c80f27d3bbd46/report.pdf)
+(kept in git history rather than in the current tree).
+
+## Development
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, linting, type-checking and test commands.
 
 ## Tech stack
 

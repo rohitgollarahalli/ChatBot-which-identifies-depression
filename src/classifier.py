@@ -28,7 +28,7 @@ import re
 import string
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Any
 
 import nltk
 from sklearn.ensemble import RandomForestClassifier
@@ -58,27 +58,85 @@ MODELS = {
     "gaussian_nb": GaussianNB,
     "random_forest": lambda: RandomForestClassifier(random_state=RANDOM_SEED),
     "mlp": lambda: MLPClassifier(
-        solver="lbfgs", alpha=1e-5, hidden_layer_sizes=(5, 2),
-        max_iter=1000, random_state=RANDOM_SEED,
+        solver="lbfgs",
+        alpha=1e-5,
+        hidden_layer_sizes=(5, 2),
+        max_iter=1000,
+        random_state=RANDOM_SEED,
     ),
 }
 
 # Minimal stop-word list used only if the NLTK corpus cannot be downloaded
 # (e.g. offline / CI). The full NLTK list is preferred when available.
 _FALLBACK_STOPWORDS = {
-    "i", "me", "my", "we", "our", "you", "your", "he", "she", "it", "they",
-    "them", "a", "an", "the", "and", "or", "but", "if", "of", "at", "by",
-    "for", "with", "to", "from", "in", "on", "is", "am", "are", "was", "were",
-    "be", "been", "being", "have", "has", "had", "do", "does", "did", "this",
-    "that", "these", "those", "as", "so", "than", "too", "very", "can", "will",
-    "just", "not", "no", "nor", "s", "t", "don", "now",
+    "i",
+    "me",
+    "my",
+    "we",
+    "our",
+    "you",
+    "your",
+    "he",
+    "she",
+    "it",
+    "they",
+    "them",
+    "a",
+    "an",
+    "the",
+    "and",
+    "or",
+    "but",
+    "if",
+    "of",
+    "at",
+    "by",
+    "for",
+    "with",
+    "to",
+    "from",
+    "in",
+    "on",
+    "is",
+    "am",
+    "are",
+    "was",
+    "were",
+    "be",
+    "been",
+    "being",
+    "have",
+    "has",
+    "had",
+    "do",
+    "does",
+    "did",
+    "this",
+    "that",
+    "these",
+    "those",
+    "as",
+    "so",
+    "than",
+    "too",
+    "very",
+    "can",
+    "will",
+    "just",
+    "not",
+    "no",
+    "nor",
+    "s",
+    "t",
+    "don",
+    "now",
 }
 
 # Resolved once per process (which tokenizer to use + which stop-words).
-_resources: Tuple[bool, set] | None = None
+_resources: tuple[bool, set] | None = None
 
 
-def _resolve_resources() -> Tuple[bool, set]:
+def _resolve_resources() -> tuple[bool, set]:
     """Decide once whether NLTK data is usable; download it if possible."""
     use_nltk_tokenizer = False
     try:
@@ -94,6 +152,7 @@ def _resolve_resources() -> Tuple[bool, set]:
 
     try:
         from nltk.corpus import stopwords
+
         try:
             nltk.data.find("corpora/stopwords")
         except LookupError:
@@ -105,14 +164,14 @@ def _resolve_resources() -> Tuple[bool, set]:
     return use_nltk_tokenizer, stop_words
 
 
-def _get_resources() -> Tuple[bool, set]:
+def _get_resources() -> tuple[bool, set]:
     global _resources
     if _resources is None:
         _resources = _resolve_resources()
     return _resources
 
 
-def _tokenize(text: str, use_nltk: bool) -> List[str]:
+def _tokenize(text: str, use_nltk: bool) -> list[str]:
     if use_nltk:
         return nltk.word_tokenize(text)
     return re.findall(r"[a-z]+", text)
@@ -122,17 +181,18 @@ def _tokenize(text: str, use_nltk: bool) -> List[str]:
 class Preprocessor:
     """Cleans and normalizes raw text into a list of stemmed tokens."""
 
-    stemmer: object = field(default=None)
+    stemmer: Any = field(default=None)
 
     def __post_init__(self) -> None:
         from nltk.stem import PorterStemmer
+
         self.stemmer = self.stemmer or PorterStemmer()
         self._use_nltk, self._stop_words = _get_resources()
 
-    def tokens(self, text: str) -> List[str]:
+    def tokens(self, text: str) -> list[str]:
         text = text.lower()
-        text = re.sub(r"[‘’“”]", "", text)          # smart quotes
-        text = re.sub(r"[0-9]", "", text)            # digits
+        text = re.sub(r"[‘’“”]", "", text)  # smart quotes
+        text = re.sub(r"[0-9]", "", text)  # digits
         text = text.translate(str.maketrans("", "", string.punctuation))
         text = re.sub(r"\s+", " ", text).strip()
         return [
@@ -150,21 +210,21 @@ def read_text(path: Path) -> str:
     return Path(path).read_text(encoding="utf-8", errors="ignore")
 
 
-def split_sentences(text: str) -> List[str]:
+def split_sentences(text: str) -> list[str]:
     """Split prose into sentences (regex-based, no external data needed)."""
     text = re.sub(r"\s+", " ", text).strip()
     parts = re.split(r"(?<=[.!?])\s+", text)
     return [p.strip() for p in parts if p.strip()]
 
 
-def load_depressed_docs() -> List[str]:
+def load_depressed_docs() -> list[str]:
     """Depressed corpus: free text -> one document per sentence."""
     return split_sentences(read_text(DATA_DIR / "depressed.txt"))
 
 
-def load_not_depressed_docs() -> List[str]:
+def load_not_depressed_docs() -> list[str]:
     """Not-depressed corpus: HappyDB CSV -> one document per moment text."""
-    docs: List[str] = []
+    docs: list[str] = []
     with open(DATA_DIR / "not_depressed.txt", encoding="utf-8", errors="ignore") as fh:
         for row in csv.reader(fh):
             if len(row) > HAPPYDB_TEXT_COLUMN:
@@ -186,7 +246,7 @@ def build_vectorizer(kind: str, ngram: str):
 
 def load_dataset(preprocess: Preprocessor, balance: bool = True):
     """Return (documents, labels), with classes balanced by down-sampling."""
-    by_label: Dict[str, List[str]] = {DEPRESSED_LABEL: [], NOT_DEPRESSED_LABEL: []}
+    by_label: dict[str, list[str]] = {DEPRESSED_LABEL: [], NOT_DEPRESSED_LABEL: []}
     for raw_docs, label in (
         (load_depressed_docs(), DEPRESSED_LABEL),
         (load_not_depressed_docs(), NOT_DEPRESSED_LABEL),
@@ -198,8 +258,8 @@ def load_dataset(preprocess: Preprocessor, balance: bool = True):
         rng = random.Random(RANDOM_SEED)
         by_label = {label: rng.sample(docs, smallest) for label, docs in by_label.items()}
 
-    documents: List[str] = []
-    labels: List[str] = []
+    documents: list[str] = []
+    labels: list[str] = []
     for label, docs in by_label.items():
         documents.extend(docs)
         labels.extend([label] * len(docs))
@@ -284,6 +344,7 @@ def main() -> None:
     if args.predict:
         label = predict_transcript(args.predict, model, vectorizer, preprocess)
         print("\n" + verdict_message(label, read_text(args.predict)))
+
 
 if __name__ == "__main__":
     main()
