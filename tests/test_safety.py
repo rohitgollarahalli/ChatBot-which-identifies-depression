@@ -9,8 +9,8 @@ CRISIS.
 
 import pytest
 
-from src.chatbot import respond
-from src.safety import CRISIS_MESSAGE, is_crisis
+from moodcheck.conversation.eliza import ElizaEngine
+from moodcheck.safety import CRISIS_MESSAGE, is_crisis
 
 CRISIS = [
     # Direct statements
@@ -159,7 +159,9 @@ def test_known_gaps(text):
 @pytest.mark.parametrize("text", CRISIS)
 def test_bot_never_reflects_crisis_language(text):
     # ELIZA reflection would turn "I want to die" into "Why do you want to die?".
-    assert respond(text) == CRISIS_MESSAGE
+    reply = ElizaEngine().respond(text)
+    assert reply.text == CRISIS_MESSAGE
+    assert reply.crisis
 
 
 def test_crisis_message_points_to_help():

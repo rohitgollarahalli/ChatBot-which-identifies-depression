@@ -1,0 +1,105 @@
+import random
+
+from moodcheck.conversation.eliza import ElizaEngine
+from moodcheck.conversation.session import EXIT_COMMAND, MIN_WORDS, run
+from moodcheck.research.classifier import verdict_message
+from moodcheck.research.config import DEPRESSED_LABEL, NOT_DEPRESSED_LABEL
+from moodcheck.safety import CRISIS_MESSAGE, CRISIS_REMINDER, DISCLAIMER
+from moodcheck.storage import TranscriptSaveError
+
+LONG = " ".join(["word"] * MIN_WORDS)
+
+
+def _session(lines, save_path=None):
+    out = []
+    feed = iter(lines)
+
+    def read(_prompt):
+        try:
+            return next(feed)
+        except StopIteration:
+            raise EOFError from None
+
+    run(ElizaEngine(random.Random(0)), read=read, write=out.append, save_path=save_path)
+    return out
+
+
+def test_full_crisis_message_once_then_reminder():
+    out = _session(["I want to die", "I'm not suicidal, just tired"])
+    assert out.count(CRISIS_MESSAGE) == 1
+    assert CRISIS_REMINDER in out
+
+
+def test_user_in_crisis_can_leave_without_minimum_words(tmp_path):
+    path = tmp_path / "out.txt"
+    out = _session(["I want to kill myself", EXIT_COMMAND, "still here?"], save_path=path)
+    assert "still here?" not in " ".join(out)
+    assert out[-1] == CRISIS_REMINDER
+    assert not path.exists()
+
+
+def test_user_in_crisis_can_leave_without_saving():
+    out = _session(["I want to kill myself", EXIT_COMMAND, "still here?"])
+    assert "still here?" not in " ".join(out)
+    assert out[-1] == CRISIS_REMINDER
+
+
+def test_session_without_crisis_has_no_reminder():
+    out = _session(["I had a long day at work"])
+    assert CRISIS_REMINDER not in out
+    assert CRISIS_MESSAGE not in out
+
+
+def test_without_save_goodbye_exits_at_once_and_writes_nothing(tmp_path, monkeypatch):
+    work = tmp_path / "work"
+    work.mkdir()
+    monkeypatch.chdir(work)
+    out = _session(["hi", EXIT_COMMAND, "never read"])
+    assert any("Nothing you type is saved" in line for line in out)
+    assert not any("saved to" in line for line in out)
+    assert list(work.iterdir()) == []
+
+
+def test_with_save_goodbye_needs_enough_words(tmp_path):
+    path = tmp_path / "t.txt"
+    out = _session(["hi", EXIT_COMMAND, LONG, EXIT_COMMAND], save_path=path)
+    assert any("chat a little more" in line for line in out)
+    assert path.read_text(encoding="utf-8") == f"hi {LONG}"
+    assert any("were saved to" in line for line in out)
+
+
+def test_eof_ends_without_saving(tmp_path):
+    path = tmp_path / "t.txt"
+    _session([LONG], save_path=path)
+    assert not path.exists()
+
+
+def test_save_error_still_shows_crisis_reminder(tmp_path):
+    path = tmp_path / "t.txt"
+    path.write_text("existing")
+    out = []
+    feed = iter(["I want to die", LONG, EXIT_COMMAND])
+    try:
+        run(
+            ElizaEngine(),
+            read=lambda _p: next(feed),
+            write=out.append,
+            save_path=path,
+        )
+    except TranscriptSaveError:
+        pass
+    else:
+        raise AssertionError("expected TranscriptSaveError")
+    assert out[-1] == CRISIS_REMINDER
+    assert path.read_text() == "existing"
+
+
+def test_crisis_transcript_overrides_model_guess():
+    text = "Work is fine. I want to kill myself. The weather is nice."
+    assert verdict_message(NOT_DEPRESSED_LABEL, text) == CRISIS_MESSAGE
+
+
+def test_verdict_includes_disclaimer():
+    msg = verdict_message(DEPRESSED_LABEL, "I had a long day at work.")
+    assert "The model's guess" in msg
+    assert DISCLAIMER in msg
