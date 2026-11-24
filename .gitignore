@@ -6,8 +6,13 @@ __pycache__/
 venv/
 env/
 
-# Project output
+# Project output (transcripts are private: never commit one)
 output.txt
+talk.txt
+
+# Builds
+build/
+dist/
 
 # OS / editor
 .DS_Store

@@ -18,92 +18,94 @@ conversation with a user and then classifies the resulting transcript as
 
 ## How it works
 
-The system runs in two stages:
+The system has two parts:
 
-1. **Reflective chatbot** (`src/chatbot.py`) — An ELIZA-style bot, inspired by
+1. **Reflective chatbot** (`moodcheck chat`) — An ELIZA-style bot, inspired by
    Weizenbaum's original, that uses regular-expression pattern matching to ask
    open-ended, empathetic questions and reflect the user's statements back to
-   them. Once the user has shared enough (≥ 31 words) and ends the session, the
-   full transcript is written to `output.txt`.
+   them. Every message goes through a crisis-language screen first. Nothing is
+   saved unless you pass `--save PATH`; then, if you have shared at least 31
+   words, your messages are written to that file when you type `good-bye` (or
+   press Ctrl-D). Ctrl-C leaves without saving.
 
-2. **Text classifier** (`src/classifier.py`) — The transcript is cleaned,
-   tokenized, stop-word filtered, and Porter-stemmed, then vectorized
-   (TF-IDF or counts, over unigrams or bigrams) and scored by one of five
-   scikit-learn classifiers. A majority vote over the predicted tokens yields
-   the final label.
+2. **Text classifier** (`moodcheck research ...`) — An educational exercise, not
+   a screening tool. Text is cleaned, tokenized, stop-word filtered, and
+   Porter-stemmed, then vectorized (TF-IDF or counts, over unigrams or bigrams)
+   and scored by one of five scikit-learn classifiers. A majority vote over the
+   predicted sentences yields the final label. The trained model is saved in
+   your cache directory and reused.
 
 ```
- ┌──────────────┐     output.txt      ┌────────────────────┐
- │   chatbot.py │ ──────────────────► │   classifier.py    │
- │  (gather)    │   transcript        │  (preprocess →     │
- └──────────────┘                     │   vectorize →      │
-                                       │   classify → vote) │
-                                       └────────────────────┘
+ ┌───────────────┐   --save PATH    ┌─────────────────────┐
+ │ moodcheck chat│ ───────────────► │ moodcheck research  │
+ │  (gather)     │   transcript     │ predict (preprocess │
+ └───────────────┘   (optional)     │ → vectorize →       │
+                                    │ classify → vote)    │
+                                    └─────────────────────┘
 ```
 
 ## Project structure
 
 ```
 .
-├── src/
-│   ├── chatbot.py       # ELIZA-style reflective conversation agent
-│   ├── classifier.py    # preprocessing + ML classification pipeline
-│   ├── safety.py        # crisis-language screen and help resources
-│   └── __init__.py
-├── tests/               # pytest suite (safety screen, conversation flow)
-├── data/
-│   ├── depressed.txt        # labelled corpus (depressed)
-│   └── not_depressed.txt    # labelled corpus (not depressed)
-├── plans/               # improvement plan
-├── pyproject.toml       # metadata + ruff/mypy/pytest config
-├── requirements.txt     # runtime dependencies
-├── requirements-dev.txt # dev tools (pinned)
+├── src/moodcheck/
+│   ├── safety.py            # crisis-language screen and help resources
+│   ├── conversation/        # engine interface, ELIZA engine, chat loop
+│   ├── research/            # corpora (data/), preprocessing, classifier, saved models
+│   ├── storage.py           # opt-in transcript saving
+│   └── cli.py               # the `moodcheck` command
+├── tests/                   # pytest suite
+├── plans/                   # improvement plan
+├── pyproject.toml           # packaging + ruff/mypy/pytest config
+├── requirements-dev.txt     # dev tools (pinned)
 ├── CONTRIBUTING.md · SECURITY.md · CODE_OF_CONDUCT.md · CHANGELOG.md
 └── LICENSE
 ```
 
 ## Getting started
 
-### 1. Install dependencies
+### 1. Install
 
 ```bash
-pip install -r requirements.txt
+pip install .
 ```
 
-The first run downloads two small NLTK resources (`punkt`, `stopwords`)
-automatically.
+The first classifier run downloads the small NLTK `stopwords` resource
+automatically (a built-in shorter list is used if that fails).
 
 ### 2. Have a conversation
 
 ```bash
-python -m src.chatbot --output output.txt
+moodcheck chat                    # saves nothing
+moodcheck chat --save ~/talk.txt    # saves what you type when you finish
 ```
 
-Chat with the bot until you've shared enough, then type `good-bye` to save the
-transcript.
+Chat with the bot, then type `good-bye` to finish.
 
-### 3. Classify the transcript
+### 3. Try research mode
 
 ```bash
-python -m src.classifier --model svm --vectorizer tfidf --ngram unigram --predict output.txt
+moodcheck research train --model svm --vectorizer tfidf --ngram unigram
+moodcheck research predict ~/talk.txt
 ```
+
+`predict` loads the model saved by `train` (or trains and saves one the first time).
 
 ## Command-line options
 
-`classifier.py`:
+`moodcheck chat`:
+
+| Option   | Description                                                    | Default  |
+| -------- | -------------------------------------------------------------- | -------- |
+| `--save` | Save your messages to this new file when you finish (never overwrites) | *(none)* |
+
+`moodcheck research train` and `moodcheck research predict FILE`:
 
 | Option         | Choices                                                          | Default   |
 | -------------- | ---------------------------------------------------------------- | --------- |
 | `--model`      | `svm`, `multinomial_nb`, `gaussian_nb`, `random_forest`, `mlp`   | `svm`     |
 | `--vectorizer` | `tfidf`, `count`                                                 | `tfidf`   |
 | `--ngram`      | `unigram`, `bigram`                                              | `unigram` |
-| `--predict`    | Path to a transcript to classify after training                  | *(none)*  |
-
-`chatbot.py`:
-
-| Option      | Description                              | Default      |
-| ----------- | ---------------------------------------- | ------------ |
-| `--output`  | Where to save the conversation transcript | `output.txt` |
 
 ## Results
 
@@ -121,7 +123,7 @@ to avoid bias toward the larger class. Trained on the balanced set with an
 | Random Forest   | ~0.80    |
 
 Exact numbers vary with the random split and on whether the full NLTK
-tokenizer or the lightweight offline fallback is used. The dataset is small, so
+stop-word list or the lightweight offline fallback is used. The dataset is small, so
 these figures should be read as a comparison of approaches rather than a
 benchmark.
 
@@ -136,7 +138,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, linting, type-checking and tes
 
 ## Tech stack
 
-Python · NLTK · scikit-learn · NumPy
+Python · NLTK · scikit-learn · joblib
 
 ## License
 

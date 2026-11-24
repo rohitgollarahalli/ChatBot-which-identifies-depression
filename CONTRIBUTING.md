@@ -10,11 +10,10 @@ git clone https://github.com/rohitgollarahalli/ChatBot-which-identifies-depressi
 cd ChatBot-which-identifies-depression
 python -m venv .venv
 . .venv/bin/activate
-pip install -r requirements-dev.txt
+pip install -r requirements-dev.txt   # installs the package in editable mode plus dev tools
 ```
 
-The project runs from a checkout for now; `pip install .` is not supported until
-the package refactor lands.
+Try it with `moodcheck chat`.
 
 ```bash
 pre-commit install   # optional: run ruff on every commit
@@ -33,6 +32,11 @@ mypy                     # type check
 pytest -q                # tests
 ```
 
+Code lives in `src/moodcheck/`: `conversation/` (engines and the chat loop),
+`research/` (corpora, preprocessing, classifier, saved models), `safety.py`,
+`storage.py` and `cli.py`. A new engine implements `Engine._generate`; never
+define `respond`, which runs the crisis screen first.
+
 ## Commits and pull requests
 
 - Use [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`,
@@ -43,7 +47,7 @@ pytest -q                # tests
 
 ## Safety-related changes
 
-Anything that touches crisis detection (`src/safety.py`) or how the bot responds to
+Anything that touches crisis detection (`src/moodcheck/safety.py`) or how the bot responds to
 crisis language must add or update tests in `tests/test_safety.py`, including
 phrasings that should and should not trigger the screen.
 

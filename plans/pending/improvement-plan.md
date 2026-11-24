@@ -160,8 +160,8 @@ What it will never do: claim to be HIPAA compliant or certified.
 ## Progress
 | Phase | Status |
 | --- | --- |
-| 0 Safety | ready (branch `fix/crisis-safety`) |
-| 1 Repo + architecture | not started |
+| 0 Safety | done |
+| 1 Repo + architecture | 1.1–1.3 done, 1.4 next |
 | 2 PHQ-9 + guidance | not started |
 | 3 Honest research mode | not started |
 | 4 Conversation | not started |
