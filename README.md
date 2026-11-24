@@ -24,8 +24,9 @@ The system has two parts:
    Weizenbaum's original, that uses regular-expression pattern matching to ask
    open-ended, empathetic questions and reflect the user's statements back to
    them. Every message goes through a crisis-language screen first. Nothing is
-   saved unless you pass `--save PATH`; then, once you have shared enough
-   (≥ 31 words) and type `good-bye`, your messages are written to that file.
+   saved unless you pass `--save PATH`; then, if you have shared at least 31
+   words, your messages are written to that file when you type `good-bye` (or
+   press Ctrl-D). Ctrl-C leaves without saving.
 
 2. **Text classifier** (`moodcheck research ...`) — An educational exercise, not
    a screening tool. Text is cleaned, tokenized, stop-word filtered, and
@@ -76,7 +77,7 @@ automatically (a built-in shorter list is used if that fails).
 
 ```bash
 moodcheck chat                    # saves nothing
-moodcheck chat --save talk.txt    # saves what you type when you finish
+moodcheck chat --save ~/talk.txt    # saves what you type when you finish
 ```
 
 Chat with the bot, then type `good-bye` to finish.
@@ -85,7 +86,7 @@ Chat with the bot, then type `good-bye` to finish.
 
 ```bash
 moodcheck research train --model svm --vectorizer tfidf --ngram unigram
-moodcheck research predict talk.txt
+moodcheck research predict ~/talk.txt
 ```
 
 `predict` loads the model saved by `train` (or trains and saves one the first time).

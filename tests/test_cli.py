@@ -204,3 +204,63 @@ def test_predict_screens_utf8_with_bom(tmp_path, capsys):
     path.write_bytes("I want to die".encode("utf-8-sig"))
     assert cli.main(["research", "predict", str(path)]) == 0
     assert capsys.readouterr().out.strip() == CRISIS_MESSAGE
+
+
+@pytest.mark.skipif(sys.platform == "win32" or os.name != "posix", reason="POSIX permissions")
+def test_chat_save_unwritable_directory_fails_before_the_chat(tmp_path, capsys):
+    folder = tmp_path / "ro"
+    folder.mkdir(mode=0o555)
+    if os.access(folder, os.W_OK):
+        pytest.skip("running as root")
+    assert cli.main(["chat", "--save", str(folder / "t.txt")]) == 2
+    captured = capsys.readouterr()
+    assert "cannot write" in captured.err
+    assert DISCLAIMER not in captured.out
+
+
+@pytest.mark.parametrize("name", ["x" * 300, "bad\0name"])
+def test_chat_save_bad_path_is_a_clean_error(tmp_path, capsys, name):
+    assert cli.main(["chat", "--save", str(tmp_path / name)]) == 2
+    captured = capsys.readouterr()
+    assert "cannot use" in captured.err
+    assert DISCLAIMER not in captured.out
+
+
+def _run(args, **kwargs):
+    env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
+    return subprocess.run(
+        [sys.executable, "-m", "moodcheck", *args], capture_output=True, env=env, **kwargs
+    )
+
+
+def test_chat_survives_input_in_another_encoding():
+    result = _run(["chat"], input=b"caf\xe9\nI want to die\ngood-bye\n")
+    assert result.returncode == 0, result.stderr
+    assert CRISIS_MESSAGE.encode() in result.stdout.replace(b"\r\n", b"\n")
+
+
+def test_chat_does_not_load_sklearn():
+    code = (
+        "import sys\nfrom moodcheck.cli import main\nmain(['chat'])\n"
+        "assert 'sklearn' not in sys.modules and 'nltk' not in sys.modules\n"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", code], input=b"hello\ngood-bye\n", capture_output=True
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_predict_without_a_home_directory_still_works(tmp_path, monkeypatch, capsys):
+    path = tmp_path / "t.txt"
+    path.write_text("I had a lovely day with my friends.")
+    monkeypatch.delenv("XDG_CACHE_HOME")
+    monkeypatch.delenv("LOCALAPPDATA")
+
+    def no_home():
+        raise RuntimeError("Could not determine home directory.")
+
+    monkeypatch.setattr("pathlib.Path.home", no_home)
+    assert cli.main(["research", "predict", str(path), "--model", "multinomial_nb"]) == 0
+    captured = capsys.readouterr()
+    assert "could not save the model" in captured.err
+    assert "The model's guess" in captured.out

@@ -17,10 +17,12 @@ import json
 import os
 import sys
 import tempfile
+from importlib import resources
 from pathlib import Path
 from typing import Any
 
 import joblib
+import nltk
 import sklearn
 
 from moodcheck import __version__
@@ -37,12 +39,23 @@ class ModelUnavailable(Exception):
 
 
 def default_cache_dir() -> Path:
-    """``$XDG_CACHE_HOME`` or ``~/.cache`` (``%LOCALAPPDATA%`` on Windows), plus ``moodcheck``."""
+    """``$XDG_CACHE_HOME`` or ``~/.cache`` (``%LOCALAPPDATA%`` on Windows), plus ``moodcheck``.
+
+    A relative value is ignored, as the XDG spec requires: it would make the
+    current directory decide which files get unpickled. Raises ``OSError`` if
+    there is no home directory to fall back to.
+    """
     if sys.platform == "win32":
-        base = os.environ.get("LOCALAPPDATA") or str(Path.home() / "AppData" / "Local")
+        variable, fallback = "LOCALAPPDATA", ("AppData", "Local")
     else:
-        base = os.environ.get("XDG_CACHE_HOME") or str(Path.home() / ".cache")
-    return Path(base) / "moodcheck"
+        variable, fallback = "XDG_CACHE_HOME", (".cache",)
+    base = Path(os.environ.get(variable, ""))
+    if not base.is_absolute():
+        try:
+            base = Path.home().joinpath(*fallback)
+        except RuntimeError as exc:
+            raise OSError(str(exc)) from exc
+    return base / "moodcheck"
 
 
 def model_paths(config: ModelConfig, directory: Path | None = None) -> tuple[Path, Path]:
@@ -56,15 +69,25 @@ def _python_version() -> str:
     return f"{sys.version_info.major}.{sys.version_info.minor}"
 
 
+def training_code_sha256() -> str:
+    """Hash of the code that decides what a model learns, so editing it retrains."""
+    digest = hashlib.sha256()
+    for name in ("classifier.py", "corpus.py", "preprocessing.py"):
+        digest.update((resources.files("moodcheck.research") / name).read_bytes())
+    return digest.hexdigest()
+
+
 def _expected_stamp(config: ModelConfig) -> dict[str, Any]:
     return {
         "format_version": FORMAT_VERSION,
         "moodcheck_version": __version__,
         "scikit_learn_version": sklearn.__version__,
+        "nltk_version": nltk.__version__,
         "python_version": _python_version(),
         "config": {"model": config.model, "vectorizer": config.vectorizer, "ngram": config.ngram},
         "preprocessing_fingerprint": Preprocessor().fingerprint(),
         "corpus_sha256": corpus_sha256(),
+        "training_code_sha256": training_code_sha256(),
     }
 
 
@@ -108,9 +131,8 @@ def save_model(trained: TrainedModel, directory: Path | None = None) -> Path:
 
 def load_model(config: ModelConfig, directory: Path | None = None) -> TrainedModel:
     """Load the saved model for ``config`` or raise ``ModelUnavailable`` with the reason."""
-    model_file, sidecar_file = model_paths(config, directory)
-
     try:
+        model_file, sidecar_file = model_paths(config, directory)
         stamp = json.loads(sidecar_file.read_text(encoding="utf-8"))
     except FileNotFoundError:
         raise ModelUnavailable("no saved model yet") from None

@@ -10,9 +10,28 @@ from __future__ import annotations
 import random
 import re
 
-from nltk.chat.util import reflections
-
 from moodcheck.conversation.engine import Engine
+
+# Pronoun swaps, from nltk.chat.util.reflections (Apache-2.0). Copied because
+# importing nltk also loads scikit-learn, which the chat does not need.
+_REFLECTIONS = {
+    "i am": "you are",
+    "i was": "you were",
+    "i": "you",
+    "i'm": "you are",
+    "i'd": "you would",
+    "i've": "you have",
+    "i'll": "you will",
+    "my": "your",
+    "you are": "I am",
+    "you were": "I was",
+    "you've": "I have",
+    "you'll": "I will",
+    "your": "my",
+    "yours": "mine",
+    "you": "me",
+    "me": "you",
+}
 
 # Each pair is (compiled-pattern, list-of-response-templates).
 PAIRS: list[tuple[str, list[str]]] = [
@@ -172,7 +191,7 @@ _COMPILED = [(re.compile(pattern, re.IGNORECASE), responses) for pattern, respon
 
 def _reflect(fragment: str) -> str:
     """Swap first/second person pronouns (e.g. 'i am' -> 'you are')."""
-    return " ".join(reflections.get(word, word) for word in fragment.lower().split())
+    return " ".join(_REFLECTIONS.get(word, word) for word in fragment.lower().split())
 
 
 class ElizaEngine(Engine):

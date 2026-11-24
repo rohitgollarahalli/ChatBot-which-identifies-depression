@@ -2,8 +2,9 @@
 
 Every engine gets the crisis screen for free: ``Engine.respond`` runs
 ``is_crisis`` first and never reaches the engine when it fires. ``respond`` is
-final and subclasses may not define it, so a new engine cannot skip the screen.
-Engines implement ``_generate`` only.
+final: a subclass that defines it, or inherits another one from a mixin, is
+rejected. The chat loop also screens each message itself before calling the
+engine. Engines implement ``_generate`` only.
 """
 
 from __future__ import annotations
@@ -26,10 +27,10 @@ class Reply:
 class Engine(ABC):
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
-        if "respond" in cls.__dict__:
+        if cls.respond is not Engine.respond:
             raise TypeError(
-                f"{cls.__name__} must not define respond(): implement _generate() instead, "
-                "so the crisis screen cannot be bypassed."
+                f"{cls.__name__} must not define or inherit another respond(): "
+                "implement _generate() instead, so the crisis screen always runs."
             )
 
     @final

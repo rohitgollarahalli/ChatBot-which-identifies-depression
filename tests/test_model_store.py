@@ -170,3 +170,26 @@ def test_cache_dir_is_private(trained, tmp_path):
     assert stat.S_IMODE(target.stat().st_mode) & 0o077 == 0
     for path in target.iterdir():
         assert stat.S_IMODE(path.stat().st_mode) & 0o077 == 0
+
+
+def test_relative_xdg_cache_home_is_ignored(monkeypatch, tmp_path):
+    # The XDG spec says relative paths are invalid. Honouring one would unpickle
+    # files from whatever directory the user happens to be in.
+    monkeypatch.setattr(model_store.sys, "platform", "linux")
+    monkeypatch.setenv("XDG_CACHE_HOME", "rel")
+    assert default_cache_dir() == tmp_path / "home" / ".cache" / "moodcheck"
+
+
+@pytest.mark.parametrize("name", ["training_code_sha256", "nltk_version"])
+def test_training_code_and_nltk_version_are_stamped(saved, load_spy, name):
+    _edit_sidecar(saved, **{name: "other"})
+    with pytest.raises(ModelUnavailable, match=name):
+        load_model(CONFIG, saved)
+    assert load_spy == []
+
+
+def test_changed_training_code_invalidates_the_model(saved, load_spy, monkeypatch):
+    monkeypatch.setattr(model_store, "training_code_sha256", lambda: "changed")
+    with pytest.raises(ModelUnavailable, match="training_code"):
+        load_model(CONFIG, saved)
+    assert load_spy == []

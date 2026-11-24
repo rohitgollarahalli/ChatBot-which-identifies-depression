@@ -1,6 +1,7 @@
 import random
 
 from moodcheck.conversation.eliza import ElizaEngine
+from moodcheck.conversation.engine import Reply
 from moodcheck.conversation.session import EXIT_COMMAND, MIN_WORDS, run
 from moodcheck.research.classifier import verdict_message
 from moodcheck.research.config import DEPRESSED_LABEL, NOT_DEPRESSED_LABEL
@@ -68,10 +69,62 @@ def test_with_save_goodbye_needs_enough_words(tmp_path):
     assert any("were saved to" in line for line in out)
 
 
-def test_eof_ends_without_saving(tmp_path):
+def test_eof_saves_a_long_enough_conversation(tmp_path):
     path = tmp_path / "t.txt"
-    _session([LONG], save_path=path)
+    out = _session([LONG], save_path=path)
+    assert path.read_text(encoding="utf-8") == LONG
+    assert any("were saved to" in line for line in out)
+
+
+def test_eof_with_too_few_words_says_nothing_was_saved(tmp_path):
+    path = tmp_path / "t.txt"
+    out = _session(["hi"], save_path=path)
     assert not path.exists()
+    assert any("Nothing was saved" in line for line in out)
+
+
+def test_ctrl_c_discards_and_says_so(tmp_path):
+    path = tmp_path / "t.txt"
+    out = []
+    feed = iter([LONG])
+
+    def read(_prompt):
+        try:
+            return next(feed)
+        except StopIteration:
+            raise KeyboardInterrupt from None
+
+    run(ElizaEngine(), read=read, write=out.append, save_path=path)
+    assert not path.exists()
+    assert any("Nothing was saved" in line for line in out)
+
+
+def test_crisis_exit_with_too_few_words_says_nothing_was_saved(tmp_path):
+    path = tmp_path / "t.txt"
+    out = _session(["I want to kill myself", EXIT_COMMAND], save_path=path)
+    assert any("Nothing was saved" in line for line in out)
+    assert out[-1] == CRISIS_REMINDER
+
+
+def test_opening_line_states_when_saving_happens(tmp_path):
+    out = _session([], save_path=tmp_path / "t.txt")
+    assert any(str(MIN_WORDS) in line and "t.txt" in line for line in out)
+
+
+def test_session_screens_even_if_an_engine_skips_the_screen():
+    engine = ElizaEngine()
+    seen = []
+    engine.respond = lambda message: seen.append(message) or Reply("bypassed")  # type: ignore
+    out = []
+    feed = iter(["I want to die", EXIT_COMMAND])
+    run(engine, read=lambda _p: next(feed), write=out.append)
+    assert CRISIS_MESSAGE in out
+    assert seen == []
+
+
+def test_undecodable_characters_do_not_hide_crisis_language():
+    out = _session(["I don\ufffdt want to live"])
+    assert CRISIS_MESSAGE in out
 
 
 def test_save_error_still_shows_crisis_reminder(tmp_path):

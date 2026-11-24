@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+import io
+import os
 import sys
 from pathlib import Path
 
@@ -66,18 +68,39 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _save_problem(save: Path) -> str | None:
+    """Why a transcript could not be saved to ``save``, checked before the chat starts."""
+    try:
+        if save.exists() or save.is_symlink():
+            return f"{save} already exists; choose a new file name (nothing was overwritten)."
+        parent = save.resolve().parent
+        if not parent.is_dir():
+            return f"the directory for {save} does not exist."
+        if not os.access(parent, os.W_OK | os.X_OK):
+            return f"cannot write to the directory for {save}."
+        # Reject a name the filesystem will not accept (too long, NUL byte).
+        os.lstat(save)
+    except FileNotFoundError:
+        return None
+    except (OSError, RuntimeError, ValueError) as exc:
+        return f"cannot use {str(save)!r}: {exc}"
+    return None
+
+
 def _chat(save: Path | None) -> int:
     from moodcheck.conversation.eliza import ElizaEngine
     from moodcheck.conversation.session import run
     from moodcheck.storage import TranscriptSaveError
 
     if save is not None:
-        if save.exists() or save.is_symlink():
-            _err(f"{save} already exists; choose a new file name (nothing was overwritten).")
+        problem = _save_problem(save)
+        if problem:
+            _err(problem)
             return 2
-        if not save.resolve().parent.is_dir():
-            _err(f"the directory for {save} does not exist.")
-            return 2
+    # A byte the terminal encoding cannot represent must not end the conversation.
+    for stream in (sys.stdin, sys.stdout):
+        if isinstance(stream, io.TextIOWrapper):
+            stream.reconfigure(errors="replace")
     try:
         run(ElizaEngine(), save_path=save)
     except TranscriptSaveError as exc:

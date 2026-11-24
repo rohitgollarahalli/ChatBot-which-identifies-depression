@@ -51,3 +51,14 @@ def test_engine_requires_generate():
 
     with pytest.raises(TypeError):
         Incomplete()  # type: ignore[abstract]
+
+
+def test_mixin_cannot_supply_respond():
+    class Mixin:
+        def respond(self, message):
+            return Reply("no screen", False)
+
+    with pytest.raises(TypeError, match="respond"):
+
+        class Sneaky(Mixin, Recorder):
+            pass
