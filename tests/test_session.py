@@ -1,5 +1,7 @@
 import random
 
+import pytest
+
 from moodcheck.conversation.eliza import ElizaEngine
 from moodcheck.conversation.engine import Reply
 from moodcheck.conversation.session import EXIT_COMMAND, MIN_WORDS, run
@@ -31,18 +33,30 @@ def test_full_crisis_message_once_then_reminder():
     assert CRISIS_REMINDER in out
 
 
-def test_user_in_crisis_can_leave_without_minimum_words(tmp_path):
+class _Recorder(ElizaEngine):
+    """Records what reaches the engine, to prove the session really ended."""
+
+    def __init__(self):
+        super().__init__(random.Random(0))
+        self.seen = []
+
+    def _generate(self, message):
+        self.seen.append(message)
+        return super()._generate(message)
+
+
+@pytest.mark.parametrize("save", [True, False])
+def test_user_in_crisis_can_leave_without_minimum_words(tmp_path, save):
     path = tmp_path / "out.txt"
-    out = _session(["I want to kill myself", EXIT_COMMAND, "still here?"], save_path=path)
-    assert "still here?" not in " ".join(out)
+    engine = _Recorder()
+    unread = iter(["I want to kill myself", EXIT_COMMAND, "still here?"])
+    out = []
+    run(engine, read=lambda _p: next(unread), write=out.append, save_path=path if save else None)
+    assert engine.seen == []
+    assert list(unread) == ["still here?"]  # the session never asked for more
+    assert not any("chat a little more" in line for line in out)
     assert out[-1] == CRISIS_REMINDER
     assert not path.exists()
-
-
-def test_user_in_crisis_can_leave_without_saving():
-    out = _session(["I want to kill myself", EXIT_COMMAND, "still here?"])
-    assert "still here?" not in " ".join(out)
-    assert out[-1] == CRISIS_REMINDER
 
 
 def test_session_without_crisis_has_no_reminder():

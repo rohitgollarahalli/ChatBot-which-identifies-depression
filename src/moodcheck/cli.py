@@ -88,6 +88,10 @@ def _save_problem(save: Path) -> str | None:
 
 
 def _chat(save: Path | None) -> int:
+    if sys.stdin is None:
+        _err(f"there is no input to read from. {CRISIS_REMINDER}")
+        return 2
+
     from moodcheck.conversation.eliza import ElizaEngine
     from moodcheck.conversation.session import run
     from moodcheck.storage import TranscriptSaveError
@@ -136,6 +140,10 @@ def _predict(file: Path, config: ModelConfig) -> int:
     except UnicodeError:
         # Dropping bytes could hide crisis language, so refuse instead of guessing.
         _err(f"{file} is not UTF-8 text, so it cannot be checked safely. {CRISIS_REMINDER}")
+        return 2
+
+    if not text.strip():
+        _err(f"{file} contains no text to classify.")
         return 2
 
     # The crisis screen comes before any model work and is never overridden.

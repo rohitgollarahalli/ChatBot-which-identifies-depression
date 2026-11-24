@@ -264,3 +264,21 @@ def test_predict_without_a_home_directory_still_works(tmp_path, monkeypatch, cap
     captured = capsys.readouterr()
     assert "could not save the model" in captured.err
     assert "The model's guess" in captured.out
+
+
+@pytest.mark.parametrize("data", [b"", b"\xef\xbb\xbf", b" \n\t "])
+def test_predict_gives_no_verdict_on_an_empty_file(tmp_path, capsys, data):
+    path = tmp_path / "t.txt"
+    path.write_bytes(data)
+    assert cli.main(["research", "predict", str(path)]) == 2
+    captured = capsys.readouterr()
+    assert "no text" in captured.err
+    assert captured.out == ""
+
+
+def test_chat_with_closed_stdin_is_a_clean_error(monkeypatch, capsys):
+    monkeypatch.setattr(sys, "stdin", None)
+    assert cli.main(["chat"]) == 2
+    captured = capsys.readouterr()
+    assert "no input" in captured.err
+    assert CRISIS_REMINDER in captured.err

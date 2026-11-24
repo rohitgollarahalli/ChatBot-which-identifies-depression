@@ -52,3 +52,8 @@ jobs:
           assert len(load_not_depressed_docs()) == 150
           "
           echo "good-bye" | smoke/bin/moodcheck chat
+          echo "I want to die" | smoke/bin/moodcheck chat | grep -F "988lifeline.org/chat"
+          echo "I had a long day at work." > ok.txt
+          smoke/bin/moodcheck research predict ok.txt | grep -F "The model's guess"
+          echo "I want to die" > crisis.txt
+          smoke/bin/moodcheck research predict crisis.txt | grep -F "988lifeline.org/chat"

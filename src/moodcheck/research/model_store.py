@@ -6,7 +6,8 @@ unpickling executes code: a version stamp inside the pickle would be read too la
 
 The hash detects corruption and stale or mismatched files. It is not a security
 boundary: someone who can write to the cache directory can rewrite the sidecar
-too. That is also why the CLI never loads a model from an arbitrary path.
+too. So on POSIX a directory or file that other users own or can write to is
+refused, and the CLI never loads a model from an arbitrary path.
 """
 
 from __future__ import annotations
@@ -65,6 +66,16 @@ def model_paths(config: ModelConfig, directory: Path | None = None) -> tuple[Pat
     return base / f"{stem}.joblib", base / f"{stem}.json"
 
 
+def _check_private(*paths: Path) -> None:
+    """Raise ``OSError`` if another user owns or can write to any of ``paths`` (POSIX)."""
+    if os.name != "posix":
+        return
+    for path in paths:
+        info = path.stat()
+        if info.st_uid != os.getuid() or info.st_mode & 0o022:
+            raise OSError(f"{path} is owned by or writable by other users")
+
+
 def _python_version() -> str:
     return f"{sys.version_info.major}.{sys.version_info.minor}"
 
@@ -106,6 +117,7 @@ def save_model(trained: TrainedModel, directory: Path | None = None) -> Path:
     """Write the model and its sidecar atomically; returns the joblib path."""
     model_file, sidecar_file = model_paths(trained.config, directory)
     model_file.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    _check_private(model_file.parent)
 
     buffer = io.BytesIO()
     joblib.dump(
@@ -133,10 +145,12 @@ def load_model(config: ModelConfig, directory: Path | None = None) -> TrainedMod
     """Load the saved model for ``config`` or raise ``ModelUnavailable`` with the reason."""
     try:
         model_file, sidecar_file = model_paths(config, directory)
+        sidecar_file.stat()  # a missing sidecar is the normal first run
+        _check_private(sidecar_file.parent, sidecar_file)
         stamp = json.loads(sidecar_file.read_text(encoding="utf-8"))
     except FileNotFoundError:
         raise ModelUnavailable("no saved model yet") from None
-    except (OSError, ValueError) as exc:
+    except (OSError, ValueError, RecursionError) as exc:
         raise ModelUnavailable(f"saved model metadata is unreadable ({exc})") from None
     if not isinstance(stamp, dict):
         raise ModelUnavailable("saved model metadata is corrupt")
@@ -146,6 +160,7 @@ def load_model(config: ModelConfig, directory: Path | None = None) -> TrainedMod
             raise ModelUnavailable(f"saved model is out of date or does not match ({key})")
 
     try:
+        _check_private(model_file)
         data = model_file.read_bytes()
     except OSError as exc:
         raise ModelUnavailable(f"saved model file is unreadable ({exc})") from None

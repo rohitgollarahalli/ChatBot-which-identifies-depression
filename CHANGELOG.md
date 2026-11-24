@@ -37,6 +37,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `research predict` gives no verdict on an empty file.
+- A model cache that other users own or can write to is never loaded (loading a model
+  can run code).
 - Chat input in an unexpected encoding no longer crashes the session.
 - `research predict` refuses files that are not UTF-8. Undecodable bytes used to be
   dropped, so crisis language in a UTF-16 file skipped the safety screen.

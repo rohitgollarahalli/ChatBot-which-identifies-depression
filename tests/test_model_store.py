@@ -1,4 +1,6 @@
+import io
 import json
+import os
 import stat
 import sys
 
@@ -6,7 +8,7 @@ import joblib
 import pytest
 import sklearn
 
-from moodcheck.research import model_store
+from moodcheck.research import corpus, model_store
 from moodcheck.research.classifier import TrainedModel, predict_text, train
 from moodcheck.research.config import ModelConfig
 from moodcheck.research.model_store import (
@@ -193,3 +195,62 @@ def test_changed_training_code_invalidates_the_model(saved, load_spy, monkeypatc
     with pytest.raises(ModelUnavailable, match="training_code"):
         load_model(CONFIG, saved)
     assert load_spy == []
+
+
+def test_loads_the_hashed_bytes_not_the_path(saved, monkeypatch):
+    # Loading by path would let the file change between the hash check and the load.
+    sources = []
+    real = joblib.load
+
+    def spy(source, *args, **kwargs):
+        sources.append(source)
+        return real(source, *args, **kwargs)
+
+    monkeypatch.setattr(joblib, "load", spy)
+    load_model(CONFIG, saved)
+    assert [type(source) for source in sources] == [io.BytesIO]
+
+
+@pytest.mark.parametrize("name", ["depressed.txt", "not_depressed.txt"])
+def test_corpus_hash_covers_each_file(monkeypatch, name):
+    before = corpus.corpus_sha256()
+    real = corpus._read_bytes
+    monkeypatch.setattr(corpus, "_read_bytes", lambda n: real(n) + (b"x" if n == name else b""))
+    assert corpus.corpus_sha256() != before
+
+
+def test_deeply_nested_sidecar_is_unavailable(saved, load_spy):
+    _, sidecar = model_paths(CONFIG, saved)
+    sidecar.write_text("[" * 200_000)
+    with pytest.raises(ModelUnavailable):
+        load_model(CONFIG, saved)
+    assert load_spy == []
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX permissions")
+@pytest.mark.parametrize("which", ["directory", "model", "sidecar"])
+def test_files_others_can_write_are_never_loaded(saved, load_spy, which):
+    model_file, sidecar = model_paths(CONFIG, saved)
+    {"directory": saved, "model": model_file, "sidecar": sidecar}[which].chmod(0o777)
+    with pytest.raises(ModelUnavailable, match="other users"):
+        load_model(CONFIG, saved)
+    assert load_spy == []
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX ownership")
+def test_files_owned_by_someone_else_are_never_loaded(saved, load_spy, monkeypatch):
+    uid = os.getuid()
+    monkeypatch.setattr(model_store.os, "getuid", lambda: uid + 1)
+    with pytest.raises(ModelUnavailable, match="other users"):
+        load_model(CONFIG, saved)
+    assert load_spy == []
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX permissions")
+def test_refuses_to_save_into_a_shared_directory(trained, tmp_path):
+    shared = tmp_path / "shared"
+    shared.mkdir()
+    shared.chmod(0o777)
+    with pytest.raises(OSError, match="other users"):
+        save_model(trained, shared)
+    assert list(shared.iterdir()) == []
