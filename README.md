@@ -1,103 +1,145 @@
-# Depression Detector
+# moodcheck
 
-A two-part natural language processing project that holds a short, empathetic
-conversation with a user and then classifies the resulting transcript as
-**depressed** or **not depressed** using classical machine-learning models.
+A small, local, open-source chat companion with a crisis-language safety
+screen, built from a 2018 student NLP project. Its research mode includes a
+text classifier that was meant to "identify depression". **It does not**, and
+this README explains why.
 
 [![CI](https://github.com/rohitgollarahalli/ChatBot-which-identifies-depression/actions/workflows/ci.yml/badge.svg)](https://github.com/rohitgollarahalli/ChatBot-which-identifies-depression/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Built with scikit-learn](https://img.shields.io/badge/built%20with-scikit--learn-orange.svg)](https://scikit-learn.org/)
 
-> ⚠️ **Disclaimer:** This is an academic NLP project, **not** a medical device.
-> It cannot diagnose depression or any other condition and must not be used as a
-> substitute for professional care. If you or someone you know is struggling,
-> please reach out to a qualified mental-health professional or a local helpline.
+> **If you are struggling right now:** in the US, call or text **988** (Suicide &
+> Crisis Lifeline, free, 24/7). Elsewhere, find a free helpline at
+> https://findahelpline.com. If you are in immediate danger, call your local
+> emergency number. This program is not a crisis service.
 
----
+## What it is
 
-## How it works
+- A reflective, ELIZA-style chatbot (`moodcheck chat`) that runs entirely on
+  your computer. It sends nothing over the network and saves nothing unless you
+  ask it to. (Research mode's only network use is the one-time NLTK
+  stop-word download described below.)
+- A crisis-language screen that checks every message before anything else
+  happens and points you to real help.
+- A research mode (`moodcheck research`) that shows a classical NLP pipeline
+  (cleaning, stemming, TF-IDF, five scikit-learn models) and, by accident, a
+  textbook example of a dataset confound.
 
-The system has two parts:
+## What it is not
 
-1. **Reflective chatbot** (`moodcheck chat`) — An ELIZA-style bot, inspired by
-   Weizenbaum's original, that uses regular-expression pattern matching to ask
-   open-ended, empathetic questions and reflect the user's statements back to
-   them. Every message goes through a crisis-language screen first. Nothing is
-   saved unless you pass `--save PATH`; then, if you have shared at least 31
-   words, your messages are written to that file when you type `good-bye` (or
-   press Ctrl-D). Ctrl-C leaves without saving.
+- **Not a medical device, a diagnosis, or a screening tool.** It cannot tell
+  whether anyone has depression.
+- **Not a therapist.** ELIZA (Weizenbaum, 1966) reflects your words back with
+  pattern matching. It does not understand them.
+- **Not a crisis service.** The safety screen is a keyword check. It catches
+  clearly worded crisis language and misses indirect statements.
+- **Not a dataset.** The training text is unlicensed third-party writing; see
+  [the data card](src/moodcheck/research/data/README.md).
 
-2. **Text classifier** (`moodcheck research ...`) — An educational exercise, not
-   a screening tool. Text is cleaned, tokenized, stop-word filtered, and
-   Porter-stemmed, then vectorized (TF-IDF or counts, over unigrams or bigrams)
-   and scored by one of five scikit-learn classifiers. A majority vote over the
-   predicted sentences yields the final label. The trained model is saved in
-   your cache directory and reused.
+## Quickstart
 
-```
- ┌───────────────┐   --save PATH    ┌─────────────────────┐
- │ moodcheck chat│ ───────────────► │ moodcheck research  │
- │  (gather)     │   transcript     │ predict (preprocess │
- └───────────────┘   (optional)     │ → vectorize →       │
-                                    │ classify → vote)    │
-                                    └─────────────────────┘
-```
-
-## Project structure
-
-```
-.
-├── src/moodcheck/
-│   ├── safety.py            # crisis-language screen and help resources
-│   ├── conversation/        # engine interface, ELIZA engine, chat loop
-│   ├── research/            # corpora (data/), preprocessing, classifier, saved models
-│   ├── storage.py           # opt-in transcript saving
-│   └── cli.py               # the `moodcheck` command
-├── tests/                   # pytest suite
-├── plans/                   # improvement plan
-├── pyproject.toml           # packaging + ruff/mypy/pytest config
-├── requirements-dev.txt     # dev tools (pinned)
-├── CONTRIBUTING.md · SECURITY.md · CODE_OF_CONDUCT.md · CHANGELOG.md
-└── LICENSE
-```
-
-## Getting started
-
-### 1. Install
+Requires Python 3.10 or newer.
 
 ```bash
+git clone https://github.com/rohitgollarahalli/ChatBot-which-identifies-depression.git
+cd ChatBot-which-identifies-depression
 pip install .
+
+moodcheck chat                      # talk; type good-bye to finish. Saves nothing.
+moodcheck chat --save ~/talk.txt    # also save what you typed when you finish
 ```
 
-The first classifier run downloads the small NLTK `stopwords` resource
-automatically (a built-in shorter list is used if that fails).
-
-### 2. Have a conversation
-
-```bash
-moodcheck chat                    # saves nothing
-moodcheck chat --save ~/talk.txt    # saves what you type when you finish
-```
-
-Chat with the bot, then type `good-bye` to finish.
-
-### 3. Try research mode
+Research mode:
 
 ```bash
 moodcheck research train --model svm --vectorizer tfidf --ngram unigram
 moodcheck research predict ~/talk.txt
 ```
 
-`predict` loads the model saved by `train` (or trains and saves one the first time).
+`train` saves the model in your cache directory; `predict` reuses it (or trains
+one the first time). The first run downloads NLTK's small `stopwords` list; if
+that fails, a built-in shorter list is used.
 
-## Command-line options
+## Safety
+
+- **Every message is screened first**, in the chat loop and again inside the
+  conversation engine, which engine classes cannot override. A match replaces
+  the bot's reply with crisis resources (988, https://findahelpline.com, local
+  emergency number). In `research predict`, crisis language in the file shows
+  the same resources instead of a model verdict.
+- **It errs towards false positives.** Showing help to someone who did not need
+  it costs little; missing someone who did costs a lot.
+- **Known gaps.** Indirect statements ("nobody would notice if I was gone") need a
+  semantic model. They are tracked as strict expected failures in
+  `tests/test_safety.py`, so closing a gap is a visible change.
+- **Privacy.** Nothing is written to disk without `--save`. A saved file is never
+  overwritten and is created readable only by you. Ctrl-C leaves without saving.
+
+Found a way to make the screen miss clear crisis language? Report it privately;
+see [SECURITY.md](SECURITY.md).
+
+## How it works
+
+```
+                       every message
+ you ──► moodcheck chat ─────────────► safety screen ──crisis──► help resources
+            │                               │
+            │                            no match
+            │                               ▼
+            │                     ELIZA engine (regex reflection) ──► reply
+            │
+            └─ --save PATH (opt-in) ──► transcript file
+                                              │
+ moodcheck research predict FILE ◄────────────┘
+            │
+            ▼
+   safety screen ──crisis──► help resources (no verdict)
+            │ no match
+            ▼
+   clean → tokenize → stop words → Porter stem → TF-IDF/counts
+   → classifier (SVM, NB, random forest, MLP) → majority vote → "the model's guess"
+```
+
+| Module | Job |
+| --- | --- |
+| `src/moodcheck/safety.py` | Crisis-language screen and help resources |
+| `src/moodcheck/conversation/` | Engine interface (enforces the screen), ELIZA engine, chat loop |
+| `src/moodcheck/research/` | Corpus loading, preprocessing, classifier, saved models |
+| `src/moodcheck/research/data/` | The two corpora and their [data card](src/moodcheck/research/data/README.md) |
+| `src/moodcheck/storage.py` | Opt-in transcript saving |
+| `src/moodcheck/cli.py` | The `moodcheck` command |
+
+## What the classifier actually learns
+
+The "depressed" examples are posts from the Reddit forum r/depression. The "not
+depressed" examples are all *happy moments* from the HappyDB corpus. Nothing in
+the training data is ordinary, neutral text, so the model learns "happy moment
+versus anything else":
+
+```bash
+echo "My manager scheduled a meeting about the quarterly budget on Tuesday." > neutral.txt
+moodcheck research predict neutral.txt
+# The model's guess: the transcript shows signs of depression.
+```
+
+Earlier versions of this README showed an accuracy table (about 0.8 to 0.87).
+Those numbers came from a single split of 30 test documents per class and
+measured how well the model tells the two *sources* apart, not depression. They
+have been removed. A fair evaluation, with neutral control text, k-fold
+cross-validation, precision and recall, and a probe set of neutral sentences, is
+Phase 3 of the [improvement plan](plans/pending/improvement-plan.md).
+
+Full details, sources, licensing and known biases:
+[`src/moodcheck/research/data/README.md`](src/moodcheck/research/data/README.md).
+
+### Command-line options
 
 `moodcheck chat`:
 
-| Option   | Description                                                    | Default  |
-| -------- | -------------------------------------------------------------- | -------- |
-| `--save` | Save your messages to this new file when you finish (never overwrites) | *(none)* |
+| Option   | Description                                                             | Default  |
+| -------- | ----------------------------------------------------------------------- | -------- |
+| `--save` | Save your messages to this new file when you finish (never overwrites)  | *(none)* |
 
 `moodcheck research train` and `moodcheck research predict FILE`:
 
@@ -107,39 +149,35 @@ moodcheck research predict ~/talk.txt
 | `--vectorizer` | `tfidf`, `count`                                                 | `tfidf`   |
 | `--ngram`      | `unigram`, `bigram`                                              | `unigram` |
 
-## Results
+## Roadmap
 
-The depressed and not-depressed corpora come in different formats (free text
-vs. HappyDB CSV), so the loader parses each correctly — extracting only the
-moment text from the CSV — and the two classes are **balanced** before training
-to avoid bias toward the larger class. Trained on the balanced set with an
-80/20 stratified split:
+The project is moving towards a safe check-in companion. See the
+[improvement plan](plans/pending/improvement-plan.md) for details.
 
-| Model           | Accuracy |
-| --------------- | -------- |
-| Multinomial NB  | ~0.87    |
-| MLP (neural net)| ~0.82    |
-| Linear SVM      | ~0.80    |
-| Random Forest   | ~0.80    |
+1. A validated questionnaire (PHQ-9) for the actual check-in result, with
+   plain-language guidance and crisis resources.
+2. An honest research mode, as described above.
+3. Optional better conversation through a self-hosted LLM (Ollama on
+   `localhost`). No cloud APIs.
+4. A local web interface (Streamlit).
 
-Exact numbers vary with the random split and on whether the full NLTK
-stop-word list or the lightweight offline fallback is used. The dataset is small, so
-these figures should be read as a comparison of approaches rather than a
-benchmark.
+## Data and licensing
 
-## Project report
+The code is released under the [MIT License](LICENSE). **The corpora in
+`src/moodcheck/research/data/` are not**: one is verbatim Reddit posts used
+without their authors' consent, and the other is a slice of HappyDB, which states
+no license. For this reason the package is marked `Private :: Do Not Upload` and
+is not published to PyPI. See the [data card](src/moodcheck/research/data/README.md).
 
-The original project report is available as a [PDF](https://github.com/rohitgollarahalli/ChatBot-which-identifies-depression/blob/f00e128b2bf75694236be5dc146c80f27d3bbd46/report.pdf)
-(kept in git history rather than in the current tree).
+## Project history
 
-## Development
+Started in 2018 as a university NLP project. The original report is in git
+history:
+[`report.pdf`](https://github.com/rohitgollarahalli/ChatBot-which-identifies-depression/blob/f00e128b2bf75694236be5dc146c80f27d3bbd46/report.pdf).
+Its accuracy claims predate the data card and should be read with the caveats
+above.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, linting, type-checking and test commands.
+## Contributing
 
-## Tech stack
-
-Python · NLTK · scikit-learn · joblib
-
-## License
-
-Released under the [MIT License](LICENSE).
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, linting, type-checking and
+tests, and [CHANGELOG.md](CHANGELOG.md) for changes.

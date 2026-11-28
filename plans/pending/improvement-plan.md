@@ -161,7 +161,7 @@ What it will never do: claim to be HIPAA compliant or certified.
 | Phase | Status |
 | --- | --- |
 | 0 Safety | done |
-| 1 Repo + architecture | 1.1–1.3 done, 1.4 next |
+| 1 Repo + architecture | done |
 | 2 PHQ-9 + guidance | not started |
 | 3 Honest research mode | not started |
 | 4 Conversation | not started |

@@ -19,8 +19,8 @@ dependencies = [
   "joblib>=1.3",
 ]
 classifiers = [
-  # Corpus provenance is undocumented until the Phase 1.4 data card; keep this
-  # off PyPI until then.
+  # The corpora are unlicensed third-party text (verbatim Reddit posts and a
+  # HappyDB slice); see src/moodcheck/research/data/README.md. Keep this off PyPI.
   "Private :: Do Not Upload",
 ]
 

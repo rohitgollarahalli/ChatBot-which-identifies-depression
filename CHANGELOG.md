@@ -12,9 +12,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Crisis-language safety screen and disclaimer.
 - Project tooling: `pyproject.toml`, ruff, mypy, pre-commit, GitHub Actions CI,
   contributing guide, security policy, code of conduct, issue and PR templates.
+- Data card for the research corpora (`src/moodcheck/research/data/README.md`):
+  sources, missing licenses and consent, how labels were assigned, known biases,
+  and the happy-moments confound. A test fails if a corpus changes without the card.
 
 ### Changed
 
+- README rewritten: what the project is and is not, quickstart, safety section,
+  architecture diagram, and what the classifier actually learns. The
+  benchmark-style accuracy table is removed; it measured source separation, not
+  depression.
 - Classifier verdict wording.
 - Crisis language now overrides the classifier verdict.
 - **Breaking:** the project is now the installable `moodcheck` package
