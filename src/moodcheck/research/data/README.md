@@ -19,9 +19,9 @@ updated, so a change to the training data is always a visible change to this car
 | --- | --- | --- |
 | Label used | `depressed` | `not_depressed` |
 | Source | Posts from the Reddit forum r/depression | HappyDB, a crowdsourced corpus of "happy moments" |
-| Collected | Around April 2018, by the original project team | HappyDB published January 2018; this file is a slice of it |
-| Format | Free text, UTF-8, 498 lines | CSV, 150 rows, HappyDB's `cleaned_hm.csv` columns |
-| Documents after loading | 423 (one per sentence) | 150 (one per happy moment, column 4 `cleaned_hm`) |
+| Collected | By the original project team; the report cites r/depression as retrieved 14 April 2018 | HappyDB published January 2018; this file is a slice of it |
+| Format | Free text, UTF-8, 498 lines | CSV in HappyDB's `cleaned_hm.csv` columns: 154 moments, read as 150 records (see known issues) |
+| Documents after loading | 423 (one per sentence) | 150 (one per happy moment: `cleaned_hm`, 0-based column 4) |
 | Used for training | 150 (randomly down-sampled to match) | 150 |
 | License | **None known** (see below) | **None stated** upstream (see below) |
 | How the label was assigned | By source: every sentence from the forum text is `depressed` | By source: every happy moment is `not_depressed` |
@@ -34,9 +34,10 @@ was copied from, not because of what it says.
 
 **Where it came from.** The original project report (2018, kept in git history:
 `report.pdf` at commit `f00e128`) says the depressed corpus was built "referring a
-reddit forum" and cites `/r/depression`, retrieved 14 April 2018
-(https://www.reddit.com/r/depression/). The text reads as first-person forum posts:
-long accounts of low mood, isolation, loss of motivation and similar.
+reddit forum" and cites `/r/depression` (https://www.reddit.com/r/depression/),
+retrieved 14 April 2018. It does not say which posts were used or how. The text
+reads as first-person forum posts: long accounts of low mood, isolation, loss of
+motivation and similar.
 
 **What is not known.**
 - Which posts, how they were chosen, or whether they were edited, trimmed or merged.
@@ -47,9 +48,11 @@ long accounts of low mood, isolation, loss of motivation and similar.
   cannot be asked for consent or offered removal.
 
 **Rights and consent.** This is personal writing about mental health by real
-people, copied word for word, without their consent. Reddit's User Agreement
-leaves ownership of posts with the people who wrote them (archived copy:
-https://webarchive.library.unt.edu/web/20191121210518/https://www.reddit.com/help/useragreement).
+people, copied word for word, without their consent. The Reddit User Agreement in
+force when the text was collected (effective 21 March 2018) says users "retain the
+rights to your copyrighted content", and grants a license to Reddit, not to other
+people (archived 13 April 2018:
+https://web.archive.org/web/20180413224751/https://www.reddit.com/help/useragreement/).
 This project holds no license from those authors. Treat the file as unlicensed
 third-party content: it is **not** covered by this repository's MIT License.
 
@@ -74,7 +77,8 @@ Like `depressed.txt`, this file is **not** covered by this repository's MIT Lice
 
 1. **The classes differ in kind, not just in mood.** "Not depressed" is not
    everyday text: it is 100% *happy moments*, mostly about family, friends and
-   achievements (HappyDB's own categories for these rows: affection 60,
+   achievements (HappyDB's classifier-predicted categories for the 150 records; the
+   hand-labelled column is filled for only 18 of them: affection 60,
    achievement 46, enjoy the moment 16, bonding 12, other 16). The "depressed"
    side is long, first-person distress writing. So the model learns
    "happy moment versus anything else". It labels plain, neutral text as
@@ -101,6 +105,16 @@ Like `depressed.txt`, this file is **not** covered by this repository's MIT Lice
    well the model separates these two sources, not depression. A fair evaluation
    (neutral control text, k-fold, precision/recall, a neutral-sentence probe) is
    Phase 3 of `plans/pending/improvement-plan.md`.
+
+## Known data issues
+
+- **A malformed row in `not_depressed.txt`.** Moment 27800 opens a quote that is
+  never closed (the text looks truncated upstream), so Python's CSV parser
+  swallows the next four moments (27844 to 27847) into one record. Those four are
+  lost, and the text used for that record is the fragment ` so when I got a hug`.
+  Fixing it changes the training data and the model, so it is left for Phase 3 of
+  the improvement plan.
+- **No deduplication or cleaning** beyond what the loader does at training time.
 
 ## Intended use
 

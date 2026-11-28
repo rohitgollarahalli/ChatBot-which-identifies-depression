@@ -44,17 +44,22 @@ Requires Python 3.10 or newer.
 ```bash
 git clone https://github.com/rohitgollarahalli/ChatBot-which-identifies-depression.git
 cd ChatBot-which-identifies-depression
+python3 -m venv .venv && . .venv/bin/activate
 pip install .
 
 moodcheck chat                      # talk; type good-bye to finish. Saves nothing.
-moodcheck chat --save ~/talk.txt    # also save what you typed when you finish
+moodcheck chat --save ~/talk.txt    # also save what you typed to a new file
 ```
+
+With `--save`, the chat keeps going until you have typed at least 31 words, and
+then `good-bye` (or Ctrl-D) saves and finishes. Ctrl-C leaves without saving. The
+file must not exist yet.
 
 Research mode:
 
 ```bash
 moodcheck research train --model svm --vectorizer tfidf --ngram unigram
-moodcheck research predict ~/talk.txt
+moodcheck research predict ~/talk.txt   # any UTF-8 text file works
 ```
 
 `train` saves the model in your cache directory; `predict` reuses it (or trains
@@ -73,8 +78,10 @@ that fails, a built-in shorter list is used.
 - **Known gaps.** Indirect statements ("nobody would notice if I was gone") need a
   semantic model. They are tracked as strict expected failures in
   `tests/test_safety.py`, so closing a gap is a visible change.
-- **Privacy.** Nothing is written to disk without `--save`. A saved file is never
-  overwritten and is created readable only by you. Ctrl-C leaves without saving.
+- **Privacy.** `moodcheck chat` writes nothing to disk without `--save`, and saves
+  nothing if you typed fewer than 31 words. A saved file is never overwritten and
+  is created readable only by you. Research mode stores trained models (not your
+  text) in your cache directory.
 
 Found a way to make the screen miss clear crisis language? Report it privately;
 see [SECURITY.md](SECURITY.md).
@@ -98,7 +105,8 @@ see [SECURITY.md](SECURITY.md).
             │ no match
             ▼
    clean → tokenize → stop words → Porter stem → TF-IDF/counts
-   → classifier (SVM, NB, random forest, MLP) → majority vote → "the model's guess"
+   → one classifier chosen with --model (SVM, multinomial/Gaussian NB, random forest, MLP)
+   → majority vote over the sentences → "the model's guess"
 ```
 
 | Module | Job |
