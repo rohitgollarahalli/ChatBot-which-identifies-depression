@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Neutral control text: `neutral_goemotions.tsv`, 300 comments from GoEmotions
+  (Apache-2.0, `LICENSE-GoEmotions.txt`) labelled only neutral, reproducible with
+  `scripts/build_neutral_subset.py`. They are labelled `not_depressed`, which removes
+  the "happy moments versus everything else" shortcut; labels are still by source.
+- Leakage groups for every document (`dep:N` per blank-line block of the Reddit text,
+  `happy:ID`, `neutral:ID`), exposed by `load_dataset`. Training and evaluation do not
+  use them yet (coming in the evaluation change); the Reddit groups are paragraph-level
+  and uneven, so even a grouped split can leak.
+- Bring-your-own-data option in the loader: `load_dataset(..., data_path=...)` reads a
+  user CSV (`text`, `label`, optional `group`) with strict validation (`UserDataError`,
+  never containing cell content); `user_data_sha256()` hashes the file for model
+  versioning. It is not wired into the training commands yet. The data card warns that
+  models trained on gated data must not be shared.
+- `load_dataset` drops exact duplicate documents within a label after cleaning and
+  raises if a class ends up empty; GoEmotions `[NAME]`/`[RELIGION]` masks are replaced
+  by "someone"/"religion" on load; `corpus_sha256()` frames each file by name and length.
+- `LICENSE-GoEmotions.txt` is listed in the wheel's `license-files`;
+  `scripts/build_neutral_subset.py` pins and verifies its GoEmotions download.
 - Crisis-language safety screen and disclaimer.
 - Project tooling: `pyproject.toml`, ruff, mypy, pre-commit, GitHub Actions CI,
   contributing guide, security policy, code of conduct, issue and PR templates.
@@ -35,6 +53,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `predict_text` now returns a `Prediction` (label and votes) instead of a string.
 - The crisis screen treats any run of whitespace, including line breaks and
   Unicode line separators, as a single space.
+- **Breaking:** `load_dataset(clean, balance=True, data_path=None)` returns a
+  `Dataset` (`documents`, `labels`, `groups`, `sources`) instead of a
+  `(documents, labels)` tuple. `corpus_sha256()` now also covers the neutral file, so
+  saved models trained before this change are no longer matched to the corpus.
+- The Reddit text is split into sentences per blank-line block, so a sentence no
+  longer spans a block boundary: 424 documents instead of 423.
+- `not_depressed.txt` now loads 154 happy moments (was 150), see Fixed. The bundled
+  training set is 846 balanced documents (was 300).
 - README rewritten: what the project is and is not, quickstart, safety section,
   architecture diagram, and what the classifier actually learns. The
   benchmark-style accuracy table is removed; it measured source separation, not
@@ -61,6 +87,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Malformed HappyDB row 27800 in `not_depressed.txt` (unclosed quote) swallowed
+  moments 27844 to 27847 into one fragment; replaced with the correctly quoted
+  upstream record.
 - `research predict` gives no verdict on an empty file.
 - A model cache that other users own or can write to is never loaded (loading a model
   can run code).

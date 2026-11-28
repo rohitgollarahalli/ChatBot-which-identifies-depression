@@ -70,7 +70,8 @@ def _features(trained_config: ModelConfig, matrix: Any) -> Any:
 def train(config: ModelConfig, *, test_size: float = 0.2) -> TrainedModel:
     """Train on the bundled corpora and evaluate on a stratified hold-out split."""
     preprocess = Preprocessor()
-    documents, labels = load_dataset(preprocess.clean)
+    dataset = load_dataset(preprocess.clean)
+    documents, labels = dataset.documents, dataset.labels
 
     # Known leak (Phase 3): the vectorizer is fitted on all documents, including
     # the hold-out split, so the reported accuracy is slightly optimistic.

@@ -28,7 +28,11 @@ def test_train_returns_model_and_does_not_print(capsys):
     not preprocessing.has_full_stop_words(), reason="needs the full NLTK stop-word list"
 )
 def test_multinomial_nb_accuracy_is_unchanged(trained):
-    assert f"{trained.accuracy:.3f}" == "0.833"
+    # Pinned to the bundled data; re-pin deliberately when the corpora change
+    # History: 0.833 (before the neutral GoEmotions comments and the 27800 fix)
+    # -> 0.741 (with them) -> 0.729 (mask tokens dropped on load)
+    # -> 0.756 (mask tokens replaced by words; exact duplicate documents dropped).
+    assert f"{trained.accuracy:.3f}" == "0.756"
 
 
 def test_training_is_deterministic(trained):

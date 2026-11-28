@@ -5,10 +5,14 @@ import re
 from importlib import resources
 from pathlib import Path
 
-from moodcheck.research.corpus import load_depressed_docs, load_not_depressed_docs
+from moodcheck.research.corpus import (
+    load_depressed_docs,
+    load_neutral_docs,
+    load_not_depressed_docs,
+)
 
 DATA = resources.files("moodcheck.research") / "data"
-CORPORA = ("depressed.txt", "not_depressed.txt")
+CORPORA = ("depressed.txt", "not_depressed.txt", "neutral_goemotions.tsv", "probe_neutral.txt")
 
 
 def _card() -> str:
@@ -33,6 +37,19 @@ def test_data_card_document_counts_match_the_loader():
     row = f"| Documents after loading | {len(load_depressed_docs())} ("
     assert row in _card()
     assert f"| {len(load_not_depressed_docs())} (one per happy moment" in _card()
+    assert f"| {len(load_neutral_docs())} (one per comment" in _card()
+
+
+def test_data_card_describes_the_goemotions_subset_and_byod():
+    card = " ".join(_card().split())
+    for needle in (
+        "scripts/build_neutral_subset.py",
+        "Apache",
+        "LICENSE-GoEmotions.txt",
+        "annotators were all native English speakers from India",
+        "data_path",
+    ):
+        assert needle in card, needle
 
 
 def test_project_readme_links_the_data_card():
