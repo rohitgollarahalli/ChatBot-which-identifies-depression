@@ -24,16 +24,20 @@ updated, so a change to the training data is always a visible change to this car
 | Collected | By the original project team; the report cites r/depression as retrieved 14 April 2018 | HappyDB published January 2018; this file is a slice of it | Added in this repository from the public GoEmotions release |
 | Format | Free text, UTF-8, 498 lines, 19 blank-line-separated blocks | CSV in HappyDB's `cleaned_hm.csv` columns: 154 moments, 154 records | TSV with header `id`, `text`: 300 comments |
 | Documents after loading | 424 (one per sentence) | 154 (one per happy moment: `cleaned_hm`, 0-based column 4) | 300 (one per comment) |
-| Used for training | 423 (all that survive cleaning) | 146 | 277 |
+| Used for training | 420 (after cleaning and removing exact duplicates) | 144 | 276 |
 | Leakage group | One per blank-line block (`dep:N`) | One per moment (`happy:ID`) | One per comment (`neutral:ID`) |
 | License | **None known** (see below) | **None stated** upstream (see below) | Apache-2.0 (`LICENSE-GoEmotions.txt`) |
 | How the label was assigned | By source: every sentence from the forum text is `depressed` | By source: every happy moment is `not_depressed` | By source: every neutral comment is `not_depressed` |
 
 The two `not_depressed` files are pooled (454 documents) and the larger class is
-randomly down-sampled to the size of the smaller one with a fixed seed. One
-depressed sentence cleans to an empty string and is dropped, so the balanced
-training set is 423 + 423 = 846 documents (the "Used for training" row shows how
-many of the 423 not-depressed picks come from each file).
+randomly down-sampled to the size of the smaller one with a fixed seed. At load
+time, documents that clean to an empty string are dropped, and so are exact
+duplicates within a label after cleaning (the first copy is kept; text that
+appears under both labels would be dropped entirely, and none does today). Four
+depressed sentences go: one cleans to an empty string and three are duplicates
+(for example "I deserve to die." appears twice). The balanced training set is
+420 + 420 = 840 documents (the "Used for training" row shows how many of the 420
+not-depressed picks come from each file).
 
 No clinical assessment, self-report questionnaire or annotator judgment was
 involved in either label. A sentence is labelled `depressed` because of where it
@@ -99,11 +103,19 @@ licensed under Apache-2.0; the full text and a modification notice are in
 "neutral" (id 27, read from `emotions.txt`), with at least 6 words, that the
 crisis screen (`moodcheck.safety.is_crisis`) does not flag. Of 10,288 such
 candidates it takes 300 with `random.Random(42)` after sorting them by comment id.
-Rerunning the script reproduces the file byte for byte. The file keeps GoEmotions'
-own `[NAME]` and `[RELIGION]` masking, but the loader drops those tokens: 54 of the
-300 comments contain `[NAME]` and no other corpus does, so the model could
-otherwise learn that the word "name" means not depressed. Tabs and newlines inside
-comments are replaced by spaces. The subset is a modification of the original data, not the dataset.
+The script downloads from a pinned google-research commit
+(`2adf640a14f11025ae5a9d0ec493b78530d276d3`) and checks the SHA-256 of both files,
+and rerunning it reproduces the file byte for byte. The selection also depends on
+the current `is_crisis` patterns, so changing them could change the sample, and
+the 6-word minimum counts mask tokens. The file keeps GoEmotions' own `[NAME]` and
+`[RELIGION]` masking, but the loader replaces `[NAME]` with "someone" and
+`[RELIGION]` with "religion": 54 of the 300 comments contain `[NAME]` and no other
+corpus does, so the model could otherwise learn that the token (or the word
+"name") means not depressed. Tabs and newlines inside comments are replaced by
+spaces. The subset is a modification of the original data, not the dataset.
+
+**Rights.** Apache-2.0 is Google's grant for the dataset. The comments themselves
+are content written by Reddit users, who did not take part in that grant.
 
 **What this does and does not fix.** The neutral comments remove the shortcut
 "every non-depressed document is a happy moment". Labels are still assigned by
@@ -130,21 +142,30 @@ Loaded by `moodcheck.research.probe.load_probe_sentences()`.
 
 ## Bring your own data
 
-Researchers who hold licensed datasets (for example DAIC-WOZ, PRIMATE or eRisk
-under signed agreements) can train locally without putting anything in this
-repository. Call `load_dataset(clean, data_path=Path("mydata.csv"))` from
-`moodcheck.research.corpus`: only that file is used, the bundled corpora are not.
+The loader can read a researcher's own licensed data (for example DAIC-WOZ,
+PRIMATE or eRisk under signed agreements) without putting anything in this
+repository: `load_dataset(clean, data_path="mydata.csv")` from
+`moodcheck.research.corpus` uses only that file (a `str` or `Path`) and not the
+bundled corpora. **The training and evaluation commands do not use `data_path`
+or the leakage groups yet; that comes with the evaluation change.** Today this is
+a loader option for your own code.
 
 The CSV is UTF-8 with a required header and these columns:
 
 | Column | Required | Meaning |
 | --- | --- | --- |
 | `text` | yes | The document. Must not be empty. |
-| `label` | yes | Exactly `depressed` or `not_depressed`. |
-| `group` | no | Rows with the same group are never split between train and test (for example one participant). Rows with no group each get their own. |
+| `label` | yes | Exactly `depressed` or `not_depressed` (surrounding whitespace is stripped; case must match). |
+| `group` | no | Rows with the same group id are meant to stay on one side of a train/test split (for example one participant). Rows with no group each get their own id (`user-auto:LINE`, separate from explicit `user:GROUP` ids). |
 
-Loading fails with `UserDataError` for a missing column, an unknown label, an empty
-file or text, a file with only one class, or a file that is not UTF-8.
+Header names are matched after trimming and lower-casing, so `Text, Label` works;
+duplicate names are rejected. Loading fails with `UserDataError` for a missing
+column, an unknown label, a row with too many or too few fields, a CSV parse error
+(such as an oversized field), an empty file or text, a file with only one class (or
+one that is empty after cleaning and removing duplicates), or a file that is not
+UTF-8. Because the file is meant for gated data, error messages never contain cell
+or header content; they give the expected header, a physical line number and, for
+a label that looks like a plain word, that word.
 `user_data_sha256(path)` hashes the file's bytes so a model can be versioned
 against it.
 
@@ -158,9 +179,9 @@ restrictions as the data, and check your data-use agreement before sharing it.
 1. **The classes differ in kind, not just in mood.** Before the neutral comments
    were added, "not depressed" was 100% *happy moments*, and the numbers below
    describe that HappyDB side: mostly about family, friends and
-   achievements (HappyDB's classifier-predicted categories for the original 150 parsed records; the
-   hand-labelled column is filled for only 18 of them: affection 60,
-   achievement 46, enjoy the moment 16, bonding 12, other 16). The "depressed"
+   achievements (HappyDB's classifier-predicted categories for the 154 records:
+   affection 62, achievement 47, enjoy the moment 16, bonding 12, leisure 7,
+   exercise 6, nature 4; the hand-labelled column is filled for only 19 of them). The "depressed"
    side is long, first-person distress writing. A model trained on those two files
    alone learns "happy moment versus anything else" and labels plain, neutral text
    as depressed. The GoEmotions comments are meant to remove that shortcut, but
@@ -174,15 +195,21 @@ restrictions as the data, and check your data-use agreement before sharing it.
    the forum text is long narrative split into sentences by a simple regex, so
    many "depressed" documents are fragments of one longer story. Sentences from
    one post can land in both the training and the test split, which inflates
-   accuracy. The loader now assigns each blank-line block a group id so that a
-   group-aware split can keep them together; the classifier does not use the
-   groups yet.
-3. **Tiny and unrepresentative.** 423 documents per class after balancing. The
+   accuracy. The loader assigns each blank-line block a group id, but training
+   and evaluation do not use the groups yet (coming in the evaluation change),
+   and the groups are weak: a blank-line block is a paragraph, not a post (blocks
+   2 to 14 look like one post), and block sizes are very uneven (one block holds
+   about 188 of the 424 sentences). So even a grouped split can leak; the true
+   post boundaries are unknown.
+3. **Source style is still a cue.** The neutral comments are shorter, end in
+   full stops less often and contain more quote markers than the long distress
+   writing, so the model can still tell the sources apart by style.
+4. **Tiny and unrepresentative.** 420 documents per class after balancing. The
    writers are anonymous English-speaking internet users: one forum, and one
    crowdsourcing pool. Nothing is known about their age, culture, language
    variety or circumstances.
-4. **Accuracy numbers mean little.** The test split is a single random hold-out
-   split of the pooled documents, so the reported accuracy (0.73 for multinomial_nb on the current data) measures how
+5. **Accuracy numbers mean little.** The test split is a single random hold-out
+   split of the pooled documents, so the reported accuracy (0.76 for multinomial_nb on the current data) measures how
    well the model separates these two sources, not depression. A fair evaluation
    (neutral control text, k-fold, precision/recall, a neutral-sentence probe) is
    Phase 3 of `plans/pending/improvement-plan.md`.
@@ -195,11 +222,17 @@ restrictions as the data, and check your data-use agreement before sharing it.
   record and one document was the fragment ` so when I got a hug`. The line was
   replaced by the correctly quoted upstream record from HappyDB's `cleaned_hm.csv`;
   no other row changed. Upstream's 27800 is itself odd: a ~7,000-character travel
-  essay (an "essay in a two-part series" about visiting the Taj Mahal with
-  mis-encoded apostrophes and quotes), not a short happy moment. It is kept as it
-  is upstream, with its line breaks normalised to `\n`. The file now parses to
+  essay (an "essay in a two-part series" about visiting the Taj Mahal), not a
+  short happy moment, with mis-encoded apostrophes and quotes that are kept as
+  upstream has them. It is kept as upstream has it, with its line breaks
+  normalised to `\n`. The file now parses to
   154 records, one per moment ID (checked by `tests/test_corpus.py`).
-- **No deduplication or cleaning** beyond what the loader does at training time.
+- **Line breaks differ from upstream in 7 rows** (27677, 27708, 27709, 27746,
+  27800, 27850, 27867), checked against upstream `cleaned_hm.csv`: they differ
+  only in line-break normalisation (CRLF became LF; in 27708 the space before each
+  break is gone too). Every other row is identical to upstream.
+- **No cleaning of the files themselves.** Cleaning and exact-duplicate removal
+  happen in the loader at training time.
 
 ## Intended use
 

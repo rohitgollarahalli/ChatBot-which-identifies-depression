@@ -53,7 +53,8 @@ def test_dataset_is_balanced_and_deterministic():
 
 def test_dataset_unbalanced_has_all_sources_and_counts():
     ds = load_dataset(str.lower, balance=False)
-    assert ds.sources.count("reddit_depression") == 424
+    # 424 sentences load; one ("I deserve to die.") appears twice and is kept once.
+    assert ds.sources.count("reddit_depression") == 423
     assert ds.sources.count("happydb") == 154
     assert ds.sources.count("goemotions_neutral") == 300
     assert set(ds.labels) == {"depressed", "not_depressed"}
@@ -166,7 +167,139 @@ def test_user_data_hash_is_of_the_file_bytes(tmp_path):
     assert user_data_sha256(path) == hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def test_goemotions_mask_tokens_are_removed_on_load():
+def test_goemotions_mask_tokens_are_replaced_on_load():
+    raw = read_corpus_text("neutral_goemotions.tsv")
+    assert "[NAME]" in raw  # the file itself keeps GoEmotions' masking
     docs = load_neutral_docs()
-    assert not any("[NAME]" in d or "[RELIGION]" in d for d in docs)
     assert len(docs) == 300
+    assert not any("[" in d for d in docs)
+    assert any("someone" in d for d in docs)
+    # The replacement must not add artefacts: a comment that began with a mask now
+    # begins with a word, and no comment gains double spaces or a leading space.
+    raw_comments = [line.partition("\t")[2] for line in raw.splitlines()[1:]]
+    for raw_comment, doc in zip(raw_comments, docs, strict=True):
+        if raw_comment.startswith("["):
+            assert doc[0].isalpha()
+        else:
+            assert doc[0] == raw_comment[0]
+    assert not any("  " in d for d in docs)
+
+
+# --- hardening of the user-CSV loader ------------------------------------
+
+SECRET = "SECRETCELL"
+
+
+def _error(tmp_path, content, **kwargs):
+    path = _write(tmp_path, content)
+    with pytest.raises(UserDataError) as info:
+        load_dataset(str, data_path=path, **kwargs)
+    assert SECRET not in str(info.value)
+    return str(info.value)
+
+
+def test_missing_columns_message_never_shows_header_values(tmp_path):
+    message = _error(tmp_path, f"{SECRET},other\na,b\n")
+    assert "text,label[,group]" in message
+    assert "2 column" in message
+
+
+def test_unknown_label_is_echoed_only_when_it_looks_like_a_label(tmp_path):
+    assert "'sad'" in _error(tmp_path, "text,label\na,sad\nb,depressed\n")
+    for label in (f"{SECRET} is my diagnosis!", "x" * 21, "dep ressed", "dépressed"):
+        message = _error(tmp_path, f'text,label\na,"{label}"\nb,depressed\n')
+        assert "not shown" in message
+
+
+def test_label_whitespace_is_stripped_but_case_is_exact(tmp_path):
+    ds = load_dataset(
+        str,
+        balance=False,
+        data_path=_write(tmp_path, "text,label\na, depressed \nb,not_depressed\n"),
+    )
+    assert ds.labels == ["depressed", "not_depressed"]
+    assert "'Depressed'" in _error(tmp_path, "text,label\na,Depressed\nb,not_depressed\n")
+
+
+def test_header_names_are_normalised(tmp_path):
+    path = _write(tmp_path, "Text, Label ,GROUP\na,depressed,g\nb,not_depressed,\n")
+    ds = load_dataset(str, balance=False, data_path=path)
+    assert ds.documents == ["a", "b"]
+    assert ds.groups[0] == "user:g"
+
+
+def test_duplicate_header_names_are_rejected(tmp_path):
+    assert "duplicate" in _error(tmp_path, "text,Text,label\na,b,depressed\n")
+
+
+@pytest.mark.parametrize("row", [f"{SECRET},depressed,g,extra", f"{SECRET}"])
+def test_rows_with_wrong_number_of_fields_are_rejected(tmp_path, row):
+    message = _error(tmp_path, f"text,label,group\n{row}\nb,not_depressed,g\n")
+    assert "line 2" in message and "wrong number of columns" in message
+
+
+def test_csv_errors_become_user_data_errors_without_content(tmp_path):
+    big = SECRET + "x" * 200_000
+    message = _error(tmp_path, f"text,label\nfine,depressed\n{big},not_depressed\n")
+    assert "line 3" in message
+
+
+def test_error_line_numbers_are_physical_lines(tmp_path):
+    content = 'text,label\n"two\nlines",depressed\nb,nope\n'
+    assert "line 4" in _error(tmp_path, content)
+
+
+def test_auto_groups_do_not_collide_with_explicit_groups(tmp_path):
+    path = _write(tmp_path, "text,label,group\na,depressed,row2\nb,not_depressed,\n")
+    ds = load_dataset(str, balance=False, data_path=path)
+    assert ds.groups == ["user:row2", "user-auto:3"]
+
+
+def test_data_path_may_be_a_string(tmp_path):
+    path = _write(tmp_path, "text,label\na,depressed\nb,not_depressed\n")
+    assert len(load_dataset(str, data_path=str(path)).documents) == 2
+
+
+def test_user_data_with_an_empty_class_after_cleaning_is_an_error(tmp_path):
+    path = _write(tmp_path, "text,label\na,depressed\nb,not_depressed\n")
+    with pytest.raises(UserDataError, match="no documents"):
+        load_dataset(lambda d: "" if d == "b" else d, data_path=path)
+
+
+def test_bundled_data_with_an_empty_class_after_cleaning_is_an_error():
+    with pytest.raises(ValueError, match="no documents"):
+        load_dataset(lambda d: "")
+
+
+def test_exact_duplicates_within_a_label_are_dropped_keeping_the_first(tmp_path):
+    path = _write(
+        tmp_path,
+        "text,label,group\nSad,depressed,g1\nsad,depressed,g2\nok,not_depressed,g3\n",
+    )
+    ds = load_dataset(str.lower, balance=False, data_path=path)
+    assert ds.documents == ["sad", "ok"]
+    assert ds.groups == ["user:g1", "user:g3"]
+
+
+def test_text_under_both_labels_is_dropped_entirely(tmp_path):
+    path = _write(
+        tmp_path,
+        "text,label\nsame,depressed\nsame,not_depressed\nsad,depressed\nfine,not_depressed\n",
+    )
+    ds = load_dataset(str, balance=False, data_path=path)
+    assert ds.documents == ["sad", "fine"]
+
+
+def test_bundled_corpus_has_no_duplicates_or_cross_label_text():
+    ds = load_dataset(str.lower, balance=False)
+    assert len(set(ds.documents)) == len(ds.documents)
+
+
+def test_corpus_hash_is_framed_by_file_name_and_length(monkeypatch):
+    import moodcheck.research.corpus as corpus
+
+    files = {"depressed.txt": b"ab", "not_depressed.txt": b"c", "neutral_goemotions.tsv": b"d"}
+    monkeypatch.setattr(corpus, "_read_bytes", lambda n: files[n])
+    before = corpus.corpus_sha256()
+    files.update({"depressed.txt": b"a", "not_depressed.txt": b"bc"})
+    assert corpus.corpus_sha256() != before
