@@ -146,8 +146,9 @@ def _predict(file: Path, config: ModelConfig) -> int:
         _err(f"{file} contains no text to classify.")
         return 2
 
-    # The crisis screen comes before any model work and is never overridden.
-    if is_crisis(text):
+    # The crisis screen comes before any model work and is never overridden. It also
+    # sees a whitespace-normalised copy so a phrase split across lines is caught.
+    if is_crisis(text) or is_crisis(" ".join(text.split())):
         print(CRISIS_MESSAGE)
         return 0
 

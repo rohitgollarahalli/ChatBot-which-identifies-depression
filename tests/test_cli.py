@@ -282,3 +282,10 @@ def test_chat_with_closed_stdin_is_a_clean_error(monkeypatch, capsys):
     captured = capsys.readouterr()
     assert "no input" in captured.err
     assert CRISIS_REMINDER in captured.err
+
+
+def test_predict_catches_crisis_phrase_split_across_lines(tmp_path, capsys):
+    path = tmp_path / "t.txt"
+    path.write_text("the bus was late\nI want to\ndie\n")
+    assert cli.main(["research", "predict", str(path)]) == 0
+    assert CRISIS_MESSAGE in capsys.readouterr().out

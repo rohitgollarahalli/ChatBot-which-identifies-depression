@@ -16,7 +16,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   sources, missing licenses and consent, how labels were assigned, known biases,
   and the happy-moments confound. A test fails if a corpus changes without the card.
 
+- Neutral probe set (`src/moodcheck/research/data/probe_neutral.txt`, 60 everyday
+  sentences written for this project, MIT) and `load_probe_sentences()`, for a
+  later evaluation of how the model treats ordinary text.
+
 ### Changed
+
+- **Breaking:** `moodcheck chat --save` now writes one message per line instead of
+  joining all messages with spaces. Old single-line transcripts still work with
+  `moodcheck research predict`.
+- **Breaking:** the verdict now shows the vote, for example "The model's guess: the
+  transcript shows signs of depression (4 of 6 sentences)." and adds a line saying
+  this is a research demo, not a mental-health assessment.
+- `moodcheck research predict` votes per line first, then per sentence, so chat
+  messages without final punctuation are no longer merged into one long sentence.
+  `predict_text` now returns a `Prediction` (label and votes) instead of a string.
 
 - README rewritten: what the project is and is not, quickstart, safety section,
   architecture diagram, and what the classifier actually learns. The

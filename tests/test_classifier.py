@@ -1,7 +1,9 @@
+import dataclasses
+
 import pytest
 
 from moodcheck.research import preprocessing
-from moodcheck.research.classifier import TrainedModel, predict_text, train
+from moodcheck.research.classifier import Prediction, TrainedModel, predict_text, train
 from moodcheck.research.config import DEPRESSED_LABEL, NOT_DEPRESSED_LABEL, ModelConfig
 
 NB = ModelConfig("multinomial_nb", "tfidf", "unigram")
@@ -34,9 +36,11 @@ def test_training_is_deterministic(trained):
 
 
 def test_predict_text_labels(trained):
-    assert predict_text("I feel hopeless and empty and worthless.", trained) == DEPRESSED_LABEL
-    assert predict_text("", trained) == NOT_DEPRESSED_LABEL
-    assert predict_text("the of and", trained) == NOT_DEPRESSED_LABEL
+    assert (
+        predict_text("I feel hopeless and empty and worthless.", trained).label == DEPRESSED_LABEL
+    )
+    assert predict_text("", trained) == Prediction(NOT_DEPRESSED_LABEL, 0, 0)
+    assert predict_text("the of and", trained) == Prediction(NOT_DEPRESSED_LABEL, 0, 0)
 
 
 def test_tie_prefers_not_depressed(trained):
@@ -49,14 +53,58 @@ def test_tie_prefers_not_depressed(trained):
 
     trained.model, original = Fixed([DEPRESSED_LABEL, NOT_DEPRESSED_LABEL]), trained.model
     try:
-        assert predict_text("sad day. glad day.", trained) == NOT_DEPRESSED_LABEL
+        assert predict_text("sad day. glad day.", trained) == Prediction(NOT_DEPRESSED_LABEL, 1, 2)
     finally:
         trained.model = original
 
 
+class _Fixed:
+    def __init__(self, labels):
+        self.labels = labels
+        self.seen = 0
+
+    def predict(self, features):
+        self.seen = features.shape[0]
+        return self.labels[: self.seen]
+
+
+def test_each_line_is_its_own_unit_even_without_punctuation(trained):
+    fixed = _Fixed([DEPRESSED_LABEL] * 3)
+    trained.model, original = fixed, trained.model
+    try:
+        result = predict_text("sad day\nglad day\nbad day\n", trained)
+    finally:
+        trained.model = original
+    assert fixed.seen == 3
+    assert result == Prediction(DEPRESSED_LABEL, 3, 3)
+
+
+def test_lines_are_split_into_sentences_too(trained):
+    fixed = _Fixed([DEPRESSED_LABEL] * 4)
+    trained.model, original = fixed, trained.model
+    try:
+        result = predict_text("sad day. bad day.\n\nglad day! good day?", trained)
+    finally:
+        trained.model = original
+    assert result.total_votes == 4
+
+
+def test_old_single_line_transcript_still_works(trained):
+    assert predict_text("sad day. glad day.", trained).total_votes == 2
+
+
+def test_crlf_and_blank_lines_are_ignored(trained):
+    assert predict_text("sad day\r\n\r\n   \r\nglad day\r\n", trained).total_votes == 2
+
+
+def test_prediction_is_frozen():
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        Prediction(NOT_DEPRESSED_LABEL, 0, 0).label = DEPRESSED_LABEL  # type: ignore[misc]
+
+
 def test_gaussian_nb_uses_dense_features():
     result = train(ModelConfig("gaussian_nb", "count", "unigram"))
-    assert predict_text("I want to cry all the time.", result) in {
+    assert predict_text("I want to cry all the time.", result).label in {
         DEPRESSED_LABEL,
         NOT_DEPRESSED_LABEL,
     }

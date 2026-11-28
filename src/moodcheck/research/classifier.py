@@ -23,8 +23,9 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.svm import SVC
 
 from moodcheck.research.config import DEPRESSED_LABEL, NOT_DEPRESSED_LABEL, ModelConfig
-from moodcheck.research.corpus import RANDOM_SEED, load_dataset, split_sentences
+from moodcheck.research.corpus import RANDOM_SEED, load_dataset
 from moodcheck.research.preprocessing import Preprocessor
+from moodcheck.research.units import split_units
 from moodcheck.safety import CRISIS_MESSAGE, DISCLAIMER, is_crisis
 
 MODELS: dict[str, Any] = {
@@ -94,33 +95,53 @@ def train(config: ModelConfig, *, test_size: float = 0.2) -> TrainedModel:
     )
 
 
-def predict_text(text: str, trained: TrainedModel) -> str:
-    """Classify text by majority vote over its sentences."""
+@dataclass(frozen=True)
+class Prediction:
+    """The outcome of the sentence vote."""
+
+    label: str
+    depressed_votes: int
+    total_votes: int
+
+
+def predict_text(text: str, trained: TrainedModel) -> Prediction:
+    """Classify text by majority vote over its units (lines, then sentences)."""
     preprocess = Preprocessor()
-    sentences = split_sentences(text) or [text]
-    cleaned = [c for c in (preprocess.clean(s) for s in sentences) if c]
+    units = split_units(text) or [text]
+    cleaned = [c for c in (preprocess.clean(u) for u in units) if c]
     if not cleaned:
-        return NOT_DEPRESSED_LABEL
+        return Prediction(NOT_DEPRESSED_LABEL, 0, 0)
 
     features = _features(trained.config, trained.vectorizer.transform(cleaned))
     predictions = list(trained.model.predict(features))
     depressed = predictions.count(DEPRESSED_LABEL)
     not_depressed = predictions.count(NOT_DEPRESSED_LABEL)
     # On a tie, prefer the less alarming label.
-    return DEPRESSED_LABEL if depressed > not_depressed else NOT_DEPRESSED_LABEL
+    label = DEPRESSED_LABEL if depressed > not_depressed else NOT_DEPRESSED_LABEL
+    return Prediction(label, depressed, len(predictions))
 
 
-def verdict_message(label: str, transcript: str) -> str:
+def verdict_message(prediction: Prediction, transcript: str) -> str:
     """What to show for a classified transcript.
 
     Crisis language always overrides the model: a wrong "does not show signs"
-    guess right after someone wrote about suicide would be harmful.
+    guess right after someone wrote about suicide would be harmful. The screen
+    sees the whole text, so a phrase split across a line break is still caught.
     """
-    if is_crisis(transcript):
+    if is_crisis(transcript) or is_crisis(" ".join(transcript.split())):
         return CRISIS_MESSAGE
     verdict = (
         "shows signs of depression"
-        if label == DEPRESSED_LABEL
+        if prediction.label == DEPRESSED_LABEL
         else "does not show signs of depression"
     )
-    return f"The model's guess: the transcript {verdict}.\n{DISCLAIMER}"
+    votes = ""
+    if prediction.total_votes:
+        noun = "sentence" if prediction.total_votes == 1 else "sentences"
+        votes = f" ({prediction.depressed_votes} of {prediction.total_votes} {noun})"
+    return (
+        f"The model's guess: the transcript {verdict}{votes}.\n"
+        "This is a research demo trained on a small corpus; the result is not a "
+        "mental-health assessment.\n"
+        f"{DISCLAIMER}"
+    )

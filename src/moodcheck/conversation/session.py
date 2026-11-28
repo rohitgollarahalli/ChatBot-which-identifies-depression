@@ -31,7 +31,8 @@ def _finish(save_path: Path, transcript: list[str], write: Callable[[str], None]
     if not _enough_words(transcript):
         write(f"Nothing was saved (fewer than {MIN_WORDS} words).")
         return
-    save_transcript(save_path, " ".join(transcript))
+    # One message per line, so prediction can tell messages apart.
+    save_transcript(save_path, "\n".join(transcript) + "\n")
     write(f"\nThank you. Your responses were saved to {save_path}.")
 
 

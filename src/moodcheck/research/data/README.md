@@ -87,7 +87,7 @@ Like `depressed.txt`, this file is **not** covered by this repository's MIT Lice
    ```bash
    echo "My manager scheduled a meeting about the quarterly budget on Tuesday." > neutral.txt
    moodcheck research predict neutral.txt --model multinomial_nb
-   # The model's guess: the transcript shows signs of depression.
+   # The model's guess: the transcript shows signs of depression (1 of 1 sentence).
    ```
 
    The same happens with the default SVM model.
