@@ -1,0 +1,2 @@
+# The data card pins these files by SHA-256; never rewrite their line endings.
+src/moodcheck/research/data/*.txt -text
