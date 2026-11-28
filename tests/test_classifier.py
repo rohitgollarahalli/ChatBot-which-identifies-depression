@@ -5,6 +5,8 @@ import pytest
 from moodcheck.research import preprocessing
 from moodcheck.research.classifier import Prediction, TrainedModel, predict_text, train
 from moodcheck.research.config import DEPRESSED_LABEL, NOT_DEPRESSED_LABEL, ModelConfig
+from moodcheck.research.units import split_units
+from moodcheck.storage import TRANSCRIPT_HEADER
 
 NB = ModelConfig("multinomial_nb", "tfidf", "unigram")
 
@@ -72,7 +74,7 @@ def test_each_line_is_its_own_unit_even_without_punctuation(trained):
     fixed = _Fixed([DEPRESSED_LABEL] * 3)
     trained.model, original = fixed, trained.model
     try:
-        result = predict_text("sad day\nglad day\nbad day\n", trained)
+        result = predict_text(f"{TRANSCRIPT_HEADER}\nsad day\nglad day\nbad day\n", trained)
     finally:
         trained.model = original
     assert fixed.seen == 3
@@ -94,7 +96,25 @@ def test_old_single_line_transcript_still_works(trained):
 
 
 def test_crlf_and_blank_lines_are_ignored(trained):
-    assert predict_text("sad day\r\n\r\n   \r\nglad day\r\n", trained).total_votes == 2
+    text = f"{TRANSCRIPT_HEADER}\r\nsad day\r\n\r\n   \r\nglad day\r\n"
+    assert predict_text(text, trained).total_votes == 2
+
+
+def test_wrapped_prose_is_split_on_sentences_not_lines():
+    assert split_units("I felt bad. Then I\nwent home. It was\nfine.") == [
+        "I felt bad.",
+        "Then I went home.",
+        "It was fine.",
+    ]
+
+
+def test_transcript_lines_split_only_on_real_newlines():
+    text = f"{TRANSCRIPT_HEADER}\nfine\u2028really\nok\rnext\r\nlast\n"
+    assert split_units(text) == ["fine really", "ok", "next", "last"]
+
+
+def test_header_line_is_not_a_unit():
+    assert split_units(f"{TRANSCRIPT_HEADER}\n") == []
 
 
 def test_prediction_is_frozen():

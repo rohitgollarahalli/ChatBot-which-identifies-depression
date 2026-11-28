@@ -26,7 +26,7 @@ from moodcheck.research.config import DEPRESSED_LABEL, NOT_DEPRESSED_LABEL, Mode
 from moodcheck.research.corpus import RANDOM_SEED, load_dataset
 from moodcheck.research.preprocessing import Preprocessor
 from moodcheck.research.units import split_units
-from moodcheck.safety import CRISIS_MESSAGE, DISCLAIMER, is_crisis
+from moodcheck.safety import CRISIS_MESSAGE, DISCLAIMER, RESEARCH_NOTE, is_crisis
 
 MODELS: dict[str, Any] = {
     "svm": lambda: SVC(kernel="linear"),
@@ -125,10 +125,9 @@ def verdict_message(prediction: Prediction, transcript: str) -> str:
     """What to show for a classified transcript.
 
     Crisis language always overrides the model: a wrong "does not show signs"
-    guess right after someone wrote about suicide would be harmful. The screen
-    sees the whole text, so a phrase split across a line break is still caught.
+    guess right after someone wrote about suicide would be harmful.
     """
-    if is_crisis(transcript) or is_crisis(" ".join(transcript.split())):
+    if is_crisis(transcript):
         return CRISIS_MESSAGE
     verdict = (
         "shows signs of depression"
@@ -137,11 +136,9 @@ def verdict_message(prediction: Prediction, transcript: str) -> str:
     )
     votes = ""
     if prediction.total_votes:
-        noun = "sentence" if prediction.total_votes == 1 else "sentences"
-        votes = f" ({prediction.depressed_votes} of {prediction.total_votes} {noun})"
-    return (
-        f"The model's guess: the transcript {verdict}{votes}.\n"
-        "This is a research demo trained on a small corpus; the result is not a "
-        "mental-health assessment.\n"
-        f"{DISCLAIMER}"
-    )
+        noun = "part" if prediction.total_votes == 1 else "parts"
+        votes = f" ({prediction.depressed_votes} of {prediction.total_votes} {noun}"
+        if 2 * prediction.depressed_votes == prediction.total_votes:
+            votes += "; a tie counts as no"
+        votes += ")"
+    return f"The model's guess: the transcript {verdict}{votes}.\n{RESEARCH_NOTE}\n{DISCLAIMER}"

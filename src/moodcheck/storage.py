@@ -5,6 +5,10 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+# First line of a transcript saved by `moodcheck chat --save`. It tells
+# `research predict` that each following line is one message.
+TRANSCRIPT_HEADER = "# moodcheck transcript: one message per line"
+
 
 class TranscriptSaveError(Exception):
     """The transcript could not be saved; no new file was left behind."""

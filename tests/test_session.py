@@ -7,8 +7,8 @@ from moodcheck.conversation.engine import Reply
 from moodcheck.conversation.session import EXIT_COMMAND, MIN_WORDS, run
 from moodcheck.research.classifier import Prediction, verdict_message
 from moodcheck.research.config import DEPRESSED_LABEL, NOT_DEPRESSED_LABEL
-from moodcheck.safety import CRISIS_MESSAGE, CRISIS_REMINDER, DISCLAIMER
-from moodcheck.storage import TranscriptSaveError
+from moodcheck.safety import CRISIS_MESSAGE, CRISIS_REMINDER, DISCLAIMER, RESEARCH_NOTE
+from moodcheck.storage import TRANSCRIPT_HEADER, TranscriptSaveError
 
 LONG = " ".join(["word"] * MIN_WORDS)
 
@@ -79,14 +79,14 @@ def test_with_save_goodbye_needs_enough_words(tmp_path):
     path = tmp_path / "t.txt"
     out = _session(["hi", EXIT_COMMAND, LONG, EXIT_COMMAND], save_path=path)
     assert any("chat a little more" in line for line in out)
-    assert path.read_text(encoding="utf-8") == f"hi\n{LONG}\n"
+    assert path.read_text(encoding="utf-8") == f"{TRANSCRIPT_HEADER}\nhi\n{LONG}\n"
     assert any("were saved to" in line for line in out)
 
 
 def test_eof_saves_a_long_enough_conversation(tmp_path):
     path = tmp_path / "t.txt"
     out = _session([LONG], save_path=path)
-    assert path.read_text(encoding="utf-8") == LONG + "\n"
+    assert path.read_text(encoding="utf-8") == f"{TRANSCRIPT_HEADER}\n{LONG}\n"
     assert any("were saved to" in line for line in out)
 
 
@@ -163,10 +163,10 @@ def test_save_error_still_shows_crisis_reminder(tmp_path):
 
 def test_saved_transcript_has_one_message_per_line(tmp_path):
     path = tmp_path / "t.txt"
-    _session(["my day was fine", "no punctuation here", LONG], save_path=path)
-    lines = path.read_text(encoding="utf-8").splitlines()
-    assert lines[:2] == ["my day was fine", "no punctuation here"]
-    assert lines[2] == LONG
+    _session(["my day was fine", "no\u2028punctuation here", LONG], save_path=path)
+    lines = path.read_text(encoding="utf-8").split("\n")
+    assert lines[:3] == [TRANSCRIPT_HEADER, "my day was fine", "no punctuation here"]
+    assert lines[3] == LONG
     assert path.read_text(encoding="utf-8").endswith("\n")
 
 
@@ -183,17 +183,21 @@ def test_crisis_phrase_split_across_a_line_break_is_still_caught():
 def test_verdict_includes_disclaimer_and_vote():
     msg = verdict_message(Prediction(DEPRESSED_LABEL, 4, 6), "I had a long day at work.")
     assert msg.startswith(
-        "The model's guess: the transcript shows signs of depression (4 of 6 sentences)."
+        "The model's guess: the transcript shows signs of depression (4 of 6 parts)."
     )
     assert DISCLAIMER in msg
-    assert "research demo" in msg
-    assert "not a mental-health assessment" in msg
+    assert RESEARCH_NOTE in msg
+
+
+def test_verdict_explains_a_tie():
+    msg = verdict_message(Prediction(NOT_DEPRESSED_LABEL, 2, 4), "a. b. c. d.")
+    assert "(2 of 4 parts; a tie counts as no)" in msg
 
 
 def test_verdict_for_not_depressed_and_singular():
     msg = verdict_message(Prediction(NOT_DEPRESSED_LABEL, 0, 1), "Fine day.")
     assert msg.startswith(
-        "The model's guess: the transcript does not show signs of depression (0 of 1 sentence)."
+        "The model's guess: the transcript does not show signs of depression (0 of 1 part)."
     )
 
 

@@ -172,3 +172,9 @@ def test_crisis_message_points_to_help():
 def test_transcript_with_crisis_language_is_flagged():
     transcript = "Work has been okay. I want to kill myself. The weather was nice today."
     assert is_crisis(transcript)
+
+
+def test_line_breaks_and_unicode_separators_read_as_spaces():
+    from moodcheck.safety import _normalise
+
+    assert _normalise("I want\nto die\r\n") == "i want to die "

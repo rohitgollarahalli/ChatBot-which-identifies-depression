@@ -2,6 +2,8 @@
 # Purpose: check how the classifier treats ordinary text that says nothing about mood.
 # Written for this project; licensed under the MIT license, like the rest of the code.
 # One sentence per line. Lines starting with "#" and blank lines are ignored.
+# A few lines have no final full stop on purpose (chat-style text), and a few are
+# mildly annoyed but ordinary ("The bus was late"): neither should read as depressed.
 The bus was late again this morning
 I need to renew my parking permit before the end of the month.
 She printed the quarterly report and left it on the desk.

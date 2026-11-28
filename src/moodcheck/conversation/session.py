@@ -7,7 +7,7 @@ from pathlib import Path
 
 from moodcheck.conversation.engine import Engine, Reply
 from moodcheck.safety import CRISIS_MESSAGE, CRISIS_REMINDER, DISCLAIMER, is_crisis
-from moodcheck.storage import save_transcript
+from moodcheck.storage import TRANSCRIPT_HEADER, save_transcript
 
 # What an undecodable byte becomes when input is read with errors="replace".
 _UNREADABLE = "\ufffd"
@@ -31,8 +31,10 @@ def _finish(save_path: Path, transcript: list[str], write: Callable[[str], None]
     if not _enough_words(transcript):
         write(f"Nothing was saved (fewer than {MIN_WORDS} words).")
         return
-    # One message per line, so prediction can tell messages apart.
-    save_transcript(save_path, "\n".join(transcript) + "\n")
+    # A header, then one message per line, so prediction can tell messages apart.
+    # Other line-separator characters inside a message become spaces.
+    lines = [" ".join(message.split()) for message in transcript]
+    save_transcript(save_path, "\n".join([TRANSCRIPT_HEADER, *lines]) + "\n")
     write(f"\nThank you. Your responses were saved to {save_path}.")
 
 

@@ -53,8 +53,9 @@ moodcheck chat --save ~/talk.txt    # also save what you typed to a new file
 
 With `--save`, the chat keeps going until you have typed at least 31 words, and
 then `good-bye` (or Ctrl-D) saves and finishes. Ctrl-C leaves without saving. The
-file must not exist yet. The file has one message per line, and `research predict`
-votes on each line (and each sentence within a line).
+file must not exist yet. It starts with a header line, then has one message per
+line, and `research predict` votes on each message (and each sentence within it).
+Any other text file is read as ordinary prose and split into sentences.
 
 Research mode:
 
@@ -129,7 +130,7 @@ versus anything else":
 ```bash
 echo "My manager scheduled a meeting about the quarterly budget on Tuesday." > neutral.txt
 moodcheck research predict neutral.txt
-# The model's guess: the transcript shows signs of depression (1 of 1 sentence).
+# The model's guess: the transcript shows signs of depression (1 of 1 part).
 ```
 
 Earlier versions of this README showed an accuracy table (about 0.8 to 0.87).

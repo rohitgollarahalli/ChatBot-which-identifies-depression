@@ -8,6 +8,7 @@ import pytest
 from moodcheck import cli
 from moodcheck.research import classifier
 from moodcheck.safety import CRISIS_MESSAGE, CRISIS_REMINDER, DISCLAIMER
+from moodcheck.storage import TRANSCRIPT_HEADER
 
 
 def _feed(monkeypatch, lines):
@@ -53,7 +54,10 @@ def test_chat_save_writes_file(tmp_path, monkeypatch):
     path = tmp_path / "t.txt"
     _feed(monkeypatch, ["word " * 40, "good-bye"])
     assert cli.main(["chat", "--save", str(path)]) == 0
-    assert path.read_text(encoding="utf-8").split() == ["word"] * 40
+    assert path.read_text(encoding="utf-8").splitlines() == [
+        TRANSCRIPT_HEADER,
+        ("word " * 40).strip(),
+    ]
 
 
 def test_chat_save_existing_file_fails_before_conversation(tmp_path, monkeypatch, capsys):

@@ -37,6 +37,11 @@ CRISIS_REMINDER = (
     "https://findahelpline.com lists free helplines in other countries."
 )
 
+RESEARCH_NOTE = (
+    "This is a research demo trained on a small corpus; the result is not a "
+    "mental-health assessment."
+)
+
 DISCLAIMER = (
     "This is a student NLP project, not a medical tool. It cannot diagnose "
     "depression. If you're struggling, please talk to a doctor or a mental-health "
@@ -114,6 +119,9 @@ def _normalise(text: str) -> str:
     # Map apostrophes before NFKC, which would split U+00B4 into a space + accent.
     text = unicodedata.normalize("NFKC", text.translate(_APOSTROPHES)).translate(_ZERO_WIDTH)
     text = text.lower()
+    # One space for any run of whitespace, so a phrase split across lines or
+    # Unicode line separators reads the same as on one line.
+    text = re.sub(r"\s+", " ", text)
     # Join letters split by punctuation: "k.i.l.l" -> "kill".
     text = re.sub(r"(?<=[a-z])[.\-_*](?=[a-z])", "", text)
     return text
