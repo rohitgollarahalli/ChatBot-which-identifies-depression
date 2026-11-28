@@ -99,9 +99,11 @@ licensed under Apache-2.0; the full text and a modification notice are in
 "neutral" (id 27, read from `emotions.txt`), with at least 6 words, that the
 crisis screen (`moodcheck.safety.is_crisis`) does not flag. Of 10,288 such
 candidates it takes 300 with `random.Random(42)` after sorting them by comment id.
-Rerunning the script reproduces the file byte for byte. GoEmotions' own `[NAME]`
-and `[RELIGION]` masking is kept; tabs and newlines inside comments are replaced by
-spaces. The subset is a modification of the original data, not the dataset.
+Rerunning the script reproduces the file byte for byte. The file keeps GoEmotions'
+own `[NAME]` and `[RELIGION]` masking, but the loader drops those tokens: 54 of the
+300 comments contain `[NAME]` and no other corpus does, so the model could
+otherwise learn that the word "name" means not depressed. Tabs and newlines inside
+comments are replaced by spaces. The subset is a modification of the original data, not the dataset.
 
 **What this does and does not fix.** The neutral comments remove the shortcut
 "every non-depressed document is a happy moment". Labels are still assigned by
@@ -180,7 +182,7 @@ restrictions as the data, and check your data-use agreement before sharing it.
    crowdsourcing pool. Nothing is known about their age, culture, language
    variety or circumstances.
 4. **Accuracy numbers mean little.** The test split is a single random hold-out
-   split of the pooled documents, so the reported accuracy (0.74 for multinomial_nb on the current data) measures how
+   split of the pooled documents, so the reported accuracy (0.73 for multinomial_nb on the current data) measures how
    well the model separates these two sources, not depression. A fair evaluation
    (neutral control text, k-fold, precision/recall, a neutral-sentence probe) is
    Phase 3 of `plans/pending/improvement-plan.md`.

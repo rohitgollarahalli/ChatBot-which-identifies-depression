@@ -112,14 +112,20 @@ def _happydb_records() -> list[tuple[str, str]]:
     return records
 
 
+# GoEmotions replaces names and religions with these tokens. No other corpus has
+# them, so a model could learn "name" means not_depressed; drop them on load.
+_GOEMOTIONS_MASK = re.compile(r"\s*\[(?:NAME|RELIGION)\]")
+
+
 def _neutral_records() -> list[tuple[str, str]]:
     """(group, comment text) pairs from the GoEmotions subset (header: id, text)."""
     lines = read_corpus_text(NEUTRAL_FILE).splitlines()
     records: list[tuple[str, str]] = []
     for line in lines[1:]:
         comment_id, _, comment = line.partition("\t")
-        if comment.strip():
-            records.append((f"neutral:{comment_id}", comment.strip()))
+        comment = _GOEMOTIONS_MASK.sub("", comment).strip()
+        if comment:
+            records.append((f"neutral:{comment_id}", comment))
     return records
 
 

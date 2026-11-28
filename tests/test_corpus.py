@@ -164,3 +164,9 @@ def test_user_data_hash_is_of_the_file_bytes(tmp_path):
 
     path = _write(tmp_path, "text,label\na,depressed\nb,not_depressed\n")
     assert user_data_sha256(path) == hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def test_goemotions_mask_tokens_are_removed_on_load():
+    docs = load_neutral_docs()
+    assert not any("[NAME]" in d or "[RELIGION]" in d for d in docs)
+    assert len(docs) == 300
