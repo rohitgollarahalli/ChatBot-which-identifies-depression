@@ -47,11 +47,13 @@ jobs:
           python -m venv smoke
           smoke/bin/pip install dist/*.whl
           smoke/bin/python -c "
-          from moodcheck.research.corpus import load_depressed_docs, load_not_depressed_docs
-          assert len(load_depressed_docs()) == 423
-          assert len(load_not_depressed_docs()) == 150
+          from moodcheck.research.corpus import load_depressed_docs, load_neutral_docs, load_not_depressed_docs
+          assert len(load_depressed_docs()) == 424
+          assert len(load_not_depressed_docs()) == 154
+          assert len(load_neutral_docs()) == 300
           from importlib import resources
           assert (resources.files('moodcheck.research') / 'data' / 'README.md').is_file(), 'data card missing from wheel'
+          assert (resources.files('moodcheck.research') / 'data' / 'LICENSE-GoEmotions.txt').is_file(), 'GoEmotions license missing from wheel'
           "
           echo "good-bye" | smoke/bin/moodcheck chat
           echo "I want to die" | smoke/bin/moodcheck chat | grep -F "988lifeline.org/chat"
