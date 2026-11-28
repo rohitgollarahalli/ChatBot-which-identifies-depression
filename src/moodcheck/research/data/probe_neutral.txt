@@ -1,0 +1,66 @@
+# Neutral probe set: 60 everyday, emotionally neutral English sentences.
+# Purpose: check how the classifier treats ordinary text that says nothing about mood.
+# Written for this project; licensed under the MIT license, like the rest of the code.
+# One sentence per line. Lines starting with "#" and blank lines are ignored.
+# A few lines have no final full stop on purpose (chat-style text), and a few are
+# mildly annoyed but ordinary ("The bus was late"): neither should read as depressed.
+The bus was late again this morning
+I need to renew my parking permit before the end of the month.
+She printed the quarterly report and left it on the desk.
+We are out of milk, so I will stop at the shop on the way home.
+The forecast says light rain on Thursday, with clouds clearing by the weekend.
+He replaced the batteries in the kitchen clock yesterday.
+My laptop needs an update before I can install the new software.
+The meeting has been moved from two o'clock to half past three.
+I cooked pasta with tomato sauce and a little basil for dinner.
+Please send the signed form to the front office by Friday.
+The train to the city leaves from platform four every twenty minutes.
+They repainted the fence along the back garden last weekend.
+I am learning how to bake sourdough bread from a video tutorial.
+The printer on the second floor is out of paper again
+Our team uses a shared spreadsheet to track the delivery schedule.
+He parked the car near the library and walked the rest of the way.
+I put the laundry in the dryer and set a timer for forty minutes.
+The new phone has a bigger screen and a faster charger.
+She ordered a set of watercolor pencils from an online art shop.
+Traffic on the ring road was heavy because of roadworks near the bridge.
+I usually take my lunch break at noon and eat at my desk.
+The supermarket closes at nine on weekdays and at six on Sundays.
+We watched a documentary about bridges and then went to bed.
+Remember to back up your files before the system maintenance starts tonight.
+My neighbor is repairing his bicycle in the driveway
+The recipe calls for two eggs, a cup of flour, and a pinch of salt.
+I booked a table for four at the Italian restaurant on Elm Street.
+The software update took almost an hour to download.
+He is saving up for a new set of tires for the van.
+The garden center sells tomato seedlings in packs of six.
+I walked to the post office to mail a package to my cousin.
+The conference room projector does not connect to my laptop.
+She wrote the delivery address on the label in blue ink.
+Tomorrow I have a dentist appointment at ten and a haircut at noon.
+The library extended its opening hours during the exam season.
+I replaced the old light bulb in the hallway with an LED one.
+The coffee machine in the break room was descaled on Monday.
+We need to buy a birthday card and some wrapping paper.
+The wi-fi router is in the living room, next to the bookshelf.
+He sorted the photos from the trip into folders by date.
+My flight was delayed by two hours because of fog at the airport.
+The instructions say to let the paint dry overnight before adding a second coat.
+I am reading a book about the history of railways.
+The bakery on the corner sells fresh rolls after seven in the morning.
+She set up a new email account for the project team.
+The washing machine makes a loud noise during the spin cycle.
+I filled out the tax form and attached the receipts.
+The football match starts at eight, and the stadium opens an hour earlier.
+He keeps his tools in a wooden box in the garage.
+The invoice for the office supplies was paid on the fifth of the month.
+I am trying a new route to work that avoids the main road.
+The class on photography meets every Wednesday evening in room twelve.
+She chopped the onions and carrots and added them to the soup pot.
+The password for the guest network was changed last week
+I downloaded the map so I can use it without a mobile connection.
+The mechanic said the car will be ready by Friday afternoon.
+We moved the sofa closer to the window to make space for the desk.
+He plays the guitar for an hour after dinner on most days.
+The parcel arrived on Tuesday, a day earlier than the tracking page said.
+I need to charge my headphones before the train ride tomorrow.
